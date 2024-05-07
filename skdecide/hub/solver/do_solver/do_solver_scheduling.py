@@ -26,6 +26,19 @@ class D(SchedulingDomain):
 
 
 class SolvingMethod(Enum):
+    """Solving method to use by the DOSolver wrapper.
+
+    This tells discrete-optimization which d-o solver to actually use.
+
+    # Attributes
+
+    GA: Genetic Algorithm
+    LS: Local Search
+    LNS: Large Neighbor
+
+
+    """
+
     PILE = "greedy"
     GA = "ga"
     LS = "ls"
@@ -33,6 +46,9 @@ class SolvingMethod(Enum):
     CP = "cp"
     LNS_LP = "lns-lp"
     LNS_CP = "lns-scheduling"
+
+
+SolvingMethod.PILE.__doc__ = "Greedy method"
 
 
 def build_solver(
