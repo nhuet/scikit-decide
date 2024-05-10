@@ -30,13 +30,6 @@ class SolvingMethod(Enum):
 
     This tells discrete-optimization which d-o solver to actually use.
 
-    # Attributes
-
-    GA: Genetic Algorithm
-    LS: Local Search
-    LNS: Large Neighbor
-
-
     """
 
     PILE = "greedy"
@@ -49,6 +42,12 @@ class SolvingMethod(Enum):
 
 
 SolvingMethod.PILE.__doc__ = "Greedy method"
+# SolvingMethod.GA.__doc__ = "Genetic Algorithm"
+SolvingMethod.LS.__doc__ = "Local Search"
+SolvingMethod.LP.__doc__ = "Mixed Integer Linear Programming"
+SolvingMethod.CP.__doc__ = "Constraint Programming"
+SolvingMethod.LNS_LP.__doc__ = "Large Neighboorhood Search based on a LP solver"
+SolvingMethod.LNS_CP.__doc__ = "Large Neighboorhood Search based on a CP solver"
 
 
 def build_solver(

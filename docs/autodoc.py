@@ -168,11 +168,16 @@ def add_func_method_infos(func_method, autodoc):
 def add_basic_member_infos(member, autodoc):
     try:
         autodoc["ref"] = get_ref(member)
-        if not isinstance(member, Enum):
+        if isinstance(member, Enum):
+            doc = inspect.getdoc(member)
+            if doc == inspect.getdoc(type(member)):
+                # same doc as the enum class (if enum member doc have not been specified): do not repeat it
+                doc = ""
+        else:
             source, line = inspect.getsourcelines(member)
             autodoc["source"] = "".join(source)  # TODO: keep?
             autodoc["line"] = line
-        doc = inspect.getdoc(member)
+            doc = inspect.getdoc(member)
         if doc is not None:
             autodoc["doc"] = format_doc(doc)
     except Exception:  # can happen e.g. when member is TypeVar
