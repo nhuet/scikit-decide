@@ -854,13 +854,13 @@ profile = ["gprof2dot (>=2022.7.29)"]
 
 [[package]]
 name = "discrete-optimization"
-version = "0.3.0"
+version = "0.3.1"
 description = "Discrete optimization library"
 optional = true
 python-versions = ">=3.8"
 files = [
-    {file = "discrete_optimization-0.3.0-py3-none-any.whl", hash = "sha256:414f341f9ff7e03d5429a91bad6b9e8c489ce2a43a978507558ceed7748998d2"},
-    {file = "discrete_optimization-0.3.0.tar.gz", hash = "sha256:cd1d3908cd1bbc6edf71288aa43fc4271fee01434fae9db18b7a27b54e7fe1e4"},
+    {file = "discrete_optimization-0.3.1-py3-none-any.whl", hash = "sha256:afd0dbc8d48173b2ba6730966f99eb4ed21750054bb74f3aa14325df3874d13a"},
+    {file = "discrete_optimization-0.3.1.tar.gz", hash = "sha256:f274684ba14f45d8d376677215323c304f63c8df5a0239e4efcd3a2b57df226f"},
 ]
 
 [package.dependencies]
@@ -876,6 +876,9 @@ numba = ">=0.50"
 numpy = ">=1.21"
 ortools = ">=9.8"
 pymzn = ">=0.18.3"
+qiskit = ">=1.0.2"
+qiskit-algorithms = ">=0.3.0"
+qiskit-optimization = ">=0.6.1"
 scipy = "*"
 seaborn = ">=0.10.1"
 setuptools = "*"
@@ -951,6 +954,19 @@ python-versions = "*"
 files = [
     {file = "docopt-0.6.2.tar.gz", hash = "sha256:49b3a825280bd66b3aa83585ef59c4a8c82f2c8a522dbe754a8bc8d08c85c491"},
 ]
+
+[[package]]
+name = "docplex"
+version = "2.27.239"
+description = "The IBM Decision Optimization CPLEX Modeling for Python"
+optional = true
+python-versions = "*"
+files = [
+    {file = "docplex-2.27.239.tar.gz", hash = "sha256:520e7e8c30416da9aa77425e6f31ef8cb6684d144f616422265ea0f012b468c4"},
+]
+
+[package.dependencies]
+six = "*"
 
 [[package]]
 name = "executing"
@@ -2606,6 +2622,17 @@ pox = ">=0.3.4"
 ppft = ">=1.7.6.8"
 
 [[package]]
+name = "pbr"
+version = "6.0.0"
+description = "Python Build Reasonableness"
+optional = true
+python-versions = ">=2.6"
+files = [
+    {file = "pbr-6.0.0-py2.py3-none-any.whl", hash = "sha256:4a7317d5e3b17a3dccb6a8cfe67dab65b20551404c52c8ed41279fa4f0cb4cda"},
+    {file = "pbr-6.0.0.tar.gz", hash = "sha256:d1377122a5a00e2f940ee482999518efe16d745d423a670c27773dfbc3c9a7d9"},
+]
+
+[[package]]
 name = "pexpect"
 version = "4.9.0"
 description = "Pexpect allows easy control of interactive console applications."
@@ -3595,6 +3622,86 @@ files = [
 cffi = {version = "*", markers = "implementation_name == \"pypy\""}
 
 [[package]]
+name = "qiskit"
+version = "1.1.0"
+description = "An open-source SDK for working with quantum computers at the level of extended quantum circuits, operators, and primitives."
+optional = true
+python-versions = ">=3.8"
+files = [
+    {file = "qiskit-1.1.0-cp38-abi3-macosx_10_9_universal2.whl", hash = "sha256:1abad8ac96dceb838e279fecae713f26f5debbd85b476e0a52ea829cd823da95"},
+    {file = "qiskit-1.1.0-cp38-abi3-macosx_10_9_x86_64.whl", hash = "sha256:c2345eaa770a0112a667c6bcbcd9694dc7eed274f1ceea0732ddb6fb42336ccc"},
+    {file = "qiskit-1.1.0-cp38-abi3-macosx_11_0_arm64.whl", hash = "sha256:3133d90bda74ec487f205c68ba501cb5f27a23a146ff5f3de70eb93084a906b8"},
+    {file = "qiskit-1.1.0-cp38-abi3-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:135f8dcd4759ea6d5989abb68d494d47d86a8068deaef4addb365e8fd89d87a8"},
+    {file = "qiskit-1.1.0-cp38-abi3-manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:06d7081b8c4fb51cd613822d6365643fb0673cdaf4e0fa40b59602f61d9e1229"},
+    {file = "qiskit-1.1.0-cp38-abi3-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:1b4f0e946d703f2bfb53d97fe7156444e55ad2d3cfb853a84b756c50877dc368"},
+    {file = "qiskit-1.1.0-cp38-abi3-manylinux_2_17_s390x.manylinux2014_s390x.whl", hash = "sha256:8fda2001a3d87c85a3166e660cb8f9f8b2842bd2aa2867e679cc3a8b9ca8785a"},
+    {file = "qiskit-1.1.0-cp38-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:01da5ebdcf907435d1ab47ea024bb791b4dea8245c148b89bc68e606c45eb478"},
+    {file = "qiskit-1.1.0-cp38-abi3-win32.whl", hash = "sha256:3d9cf7fa7d0a17a500b0181eae07c08d38e9a6a67789e09736b2de334159edfe"},
+    {file = "qiskit-1.1.0-cp38-abi3-win_amd64.whl", hash = "sha256:26eb1b391ac36e831bec0f7dd3c78b426ea5b0963b124a749b8da38f03c2e875"},
+    {file = "qiskit-1.1.0.tar.gz", hash = "sha256:d4d0310029659711dca6b9c0cc593e1b33daf059e52ba221267f85bb47f1bf4e"},
+]
+
+[package.dependencies]
+dill = ">=0.3"
+numpy = ">=1.17,<3"
+python-dateutil = ">=2.8.0"
+rustworkx = ">=0.14.0"
+scipy = ">=1.5"
+stevedore = ">=3.0.0"
+symengine = ">=0.11"
+sympy = ">=1.3"
+typing-extensions = "*"
+
+[package.extras]
+all = ["qiskit[crosstalk-pass,csp-layout-pass,qasm3-import,visualization]"]
+crosstalk-pass = ["z3-solver (>=4.7)"]
+csp-layout-pass = ["python-constraint (>=1.4)"]
+qasm3-import = ["qiskit-qasm3-import (>=0.1.0)"]
+visualization = ["Pillow (>=4.2.1)", "matplotlib (>=3.3)", "pydot", "pylatexenc (>=1.4)", "seaborn (>=0.9.0)"]
+
+[[package]]
+name = "qiskit-algorithms"
+version = "0.3.0"
+description = "Qiskit Algorithms: A library of quantum computing algorithms"
+optional = true
+python-versions = ">=3.8"
+files = [
+    {file = "qiskit-algorithms-0.3.0.tar.gz", hash = "sha256:02eedcbb079c6da371421a50cb296ff1dc6ce4a1c478ec521ff6e62c9bc53e10"},
+    {file = "qiskit_algorithms-0.3.0-py3-none-any.whl", hash = "sha256:8ae1aa8aafc32864890a31c06d19f100a79df6412350f1f4b8c124cd17b3f731"},
+]
+
+[package.dependencies]
+numpy = ">=1.17"
+qiskit = ">=0.44"
+scipy = ">=1.4"
+
+[[package]]
+name = "qiskit-optimization"
+version = "0.6.1"
+description = "Qiskit Optimization: A library for optimization applications using quantum computing"
+optional = true
+python-versions = ">=3.8"
+files = [
+    {file = "qiskit-optimization-0.6.1.tar.gz", hash = "sha256:0ad8c2bc83fe80657c788b5f282ce4055d0ec005c4876789e5069499ee3c00c0"},
+    {file = "qiskit_optimization-0.6.1-py3-none-any.whl", hash = "sha256:3f09f31289dfef66bbbb03b782a94d88a4ba5681c728b4b8e96884de5fc83879"},
+]
+
+[package.dependencies]
+docplex = ">=2.21.207,<2.24.231 || >2.24.231"
+networkx = ">=2.6.3"
+numpy = ">=1.17"
+qiskit = ">=0.44"
+qiskit-algorithms = ">=0.2.0"
+scipy = ">=1.9.0"
+setuptools = ">=40.1.0"
+
+[package.extras]
+cplex = ["cplex"]
+cvx = ["cvxpy"]
+gurobi = ["gurobipy"]
+matplotlib = ["matplotlib"]
+
+[[package]]
 name = "ray"
 version = "2.20.0"
 description = "Ray provides a simple, universal API for building distributed applications."
@@ -3817,6 +3924,84 @@ files = [
     {file = "rpds_py-0.18.0-pp39-pypy39_pp73-musllinux_1_2_x86_64.whl", hash = "sha256:4832d7d380477521a8c1644bbab6588dfedea5e30a7d967b5fb75977c45fd77f"},
     {file = "rpds_py-0.18.0.tar.gz", hash = "sha256:42821446ee7a76f5d9f71f9e33a4fb2ffd724bb3e7f93386150b61a43115788d"},
 ]
+
+[[package]]
+name = "rustworkx"
+version = "0.14.2"
+description = "A python graph library implemented in Rust"
+optional = true
+python-versions = ">=3.8"
+files = [
+    {file = "rustworkx-0.14.2-cp310-cp310-macosx_10_12_x86_64.whl", hash = "sha256:a28a972dc7e0faf03f9f90c5be89328af8a71e609f311840e1a6abc6385edb79"},
+    {file = "rustworkx-0.14.2-cp310-cp310-macosx_10_9_universal2.whl", hash = "sha256:50e682b8fd2f11f9e99c309a01f7ed88a09ad32cda35b92c49835b1c9536ec65"},
+    {file = "rustworkx-0.14.2-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:6e1c3cf3d265835429074a1ecaa8f9bff327b188e1496a120bf8be8260a46453"},
+    {file = "rustworkx-0.14.2-cp310-cp310-manylinux_2_12_i686.manylinux2010_i686.manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:0a22c02f74bf391b48ae92f633083d068055f3ed85050e35fe6cda967ff8a825"},
+    {file = "rustworkx-0.14.2-cp310-cp310-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:996bad21eacbe124dd1e6abca47dd69ade9db0d4df5dd29197694f5d8e0a8258"},
+    {file = "rustworkx-0.14.2-cp310-cp310-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:95c4647461f05fd9f99bae52002a929e8628d4e5a2e732dbfd7abd00ae5257b7"},
+    {file = "rustworkx-0.14.2-cp310-cp310-manylinux_2_17_s390x.manylinux2014_s390x.whl", hash = "sha256:829444876bba1940fa3109998f3b6c9184256d91eea5f0e09d9e9f8f26bb4704"},
+    {file = "rustworkx-0.14.2-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:987b430dce1351a0c761bd6eedb8f6999f48983c9d4b06bf4b0b9dc45d08be8d"},
+    {file = "rustworkx-0.14.2-cp310-cp310-musllinux_1_1_aarch64.whl", hash = "sha256:18ef16f9b6b4f1c0d458fde3f213b78436ac810d61cae60385696b411aa80e1d"},
+    {file = "rustworkx-0.14.2-cp310-cp310-musllinux_1_1_x86_64.whl", hash = "sha256:fe30f1e22e69cbab4182d0017e21c345bf75f142a7b66a828227dd3c654d524c"},
+    {file = "rustworkx-0.14.2-cp310-cp310-win32.whl", hash = "sha256:c1fe9f9ed18e270074d3632f6c70cc75c461535d9e76db39d1c0ab712bf64a7a"},
+    {file = "rustworkx-0.14.2-cp310-cp310-win_amd64.whl", hash = "sha256:271b36412421d622e9e8cd27e2c6e1bd356e452f979edd41bb32d308df936f47"},
+    {file = "rustworkx-0.14.2-cp311-cp311-macosx_10_12_x86_64.whl", hash = "sha256:c52e34ff4b08d1eaedd2ec906bca4317f4f852b36e4615d372b1ff2bb435ff26"},
+    {file = "rustworkx-0.14.2-cp311-cp311-macosx_10_9_universal2.whl", hash = "sha256:c97dc0cf7efef033ce50fa570887f97896b0f449c841ec3b127ecb70b3c16c84"},
+    {file = "rustworkx-0.14.2-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:114bec1606ae31c089ecf52aa511551c545c6ce0746d3e8766082ad450377a2c"},
+    {file = "rustworkx-0.14.2-cp311-cp311-manylinux_2_12_i686.manylinux2010_i686.manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:950fa4ffc1691081587c87c4e869a8f5c7d0672d35ce1ba7c69f758f90bfe8c0"},
+    {file = "rustworkx-0.14.2-cp311-cp311-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:2134aa9c2065ab6c934017b6909e224e860003eb5dbaa5d2c4e87fff1187459a"},
+    {file = "rustworkx-0.14.2-cp311-cp311-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:bec8f1f1a6fed3ffbf5348a2b9d700f0b840fed2faa6a5198838d0fa9674a781"},
+    {file = "rustworkx-0.14.2-cp311-cp311-manylinux_2_17_s390x.manylinux2014_s390x.whl", hash = "sha256:b8046991499df7aa984b3d9092e4f013597901c919aaf6fa43147e8550685734"},
+    {file = "rustworkx-0.14.2-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:acb4256fba2c4f5c4ec009f383623b6a7c0a2dbeed1b529d22a193113927364a"},
+    {file = "rustworkx-0.14.2-cp311-cp311-musllinux_1_1_aarch64.whl", hash = "sha256:be7be125f9313b58829f7202a66dc166b61bf3c4bbe0c509b8d6902ed0d2da45"},
+    {file = "rustworkx-0.14.2-cp311-cp311-musllinux_1_1_x86_64.whl", hash = "sha256:5d00f87fce0e48c6d7af4b63ee635188178e91462b52ac900d36ec3184ce92fc"},
+    {file = "rustworkx-0.14.2-cp311-cp311-win32.whl", hash = "sha256:521e0f432a94ac9a4c92f30a746b971f7e49476fd128d83d94d4b15a2c17245d"},
+    {file = "rustworkx-0.14.2-cp311-cp311-win_amd64.whl", hash = "sha256:8fd20776c0f543340ef96450ba5d9d670b8d74396315f7191303a392844271e0"},
+    {file = "rustworkx-0.14.2-cp312-cp312-macosx_10_12_x86_64.whl", hash = "sha256:7bb37e877653ae4b4d505fc7e5f7847ae06e6822b91cec56e9e851941a6a0ae7"},
+    {file = "rustworkx-0.14.2-cp312-cp312-macosx_10_9_universal2.whl", hash = "sha256:230808e3878236464ac00001d8b440382aa6230f0073554ec627580863e380cc"},
+    {file = "rustworkx-0.14.2-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:9a7cb7103ba88e12e3dd8e3b28365cbe971a8c158c1ee770646b2f3fd5cedab0"},
+    {file = "rustworkx-0.14.2-cp312-cp312-manylinux_2_12_i686.manylinux2010_i686.manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:2637d0e496f34bac45f926b0aa12fb2e143581208f29a424cfb0eb5a7b5c3bfa"},
+    {file = "rustworkx-0.14.2-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:692f78ee7f7a60d9c7082a5a26b4eefb697526f195172798389d7009510d84f3"},
+    {file = "rustworkx-0.14.2-cp312-cp312-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:91d5513e93b7c10fbce954771a74fc86d551eb33b9eb318eaa35d7668f9929da"},
+    {file = "rustworkx-0.14.2-cp312-cp312-manylinux_2_17_s390x.manylinux2014_s390x.whl", hash = "sha256:26076523a1c43e903c633f2375afac28fdbb83b9668bee00fae24d8c672bf6c9"},
+    {file = "rustworkx-0.14.2-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:6de5e2df15c415dfb6e5cb7175239d0862568cb10d028f451d358d101be5d8bf"},
+    {file = "rustworkx-0.14.2-cp312-cp312-musllinux_1_1_aarch64.whl", hash = "sha256:21c86c240628abc2123d7d1317647073a738bdfe143c55728261b66bc32806e2"},
+    {file = "rustworkx-0.14.2-cp312-cp312-musllinux_1_1_x86_64.whl", hash = "sha256:0aa0277b931ca3fdfae07f8999b6a63dc9b89622b2fab820fa6bd95dd1e2e2eb"},
+    {file = "rustworkx-0.14.2-cp312-cp312-win32.whl", hash = "sha256:fdc632673d4cd7f1cffe8ce13ea17dc361cf9d0d9f37dfa0888d94bdd5e6c159"},
+    {file = "rustworkx-0.14.2-cp312-cp312-win_amd64.whl", hash = "sha256:47768f985f32ac1cd807af816fbd5f6e2433889793afdd838891ae516a95c8a6"},
+    {file = "rustworkx-0.14.2-cp38-cp38-macosx_10_12_x86_64.whl", hash = "sha256:bfeee5a5be9eb71635a7897a6d2c034b1c01bf876fd15007b8bd4c6eaa8921e2"},
+    {file = "rustworkx-0.14.2-cp38-cp38-macosx_10_9_universal2.whl", hash = "sha256:4a20434c77f3daab043ab2f96386b5da871ebf15a5495f9ad5b916c3edf03e5c"},
+    {file = "rustworkx-0.14.2-cp38-cp38-macosx_11_0_arm64.whl", hash = "sha256:d856549e874e064af136f2ce304eb896d32d8865c3e98f8d9e83b577f4c57f1d"},
+    {file = "rustworkx-0.14.2-cp38-cp38-manylinux_2_12_i686.manylinux2010_i686.manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:2521a223fb5aab2a14351205456d02bd851e0ec6b0c028f5598fe14f292e881b"},
+    {file = "rustworkx-0.14.2-cp38-cp38-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:dc9e7718eee8295cd5c11a5cf1c0fc7772e9c1dcc3d110edba4c77aad47e7f07"},
+    {file = "rustworkx-0.14.2-cp38-cp38-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:8c23ef82b1d373e07c280b8b6927dbad3953597e34c752e14843ac3df722a621"},
+    {file = "rustworkx-0.14.2-cp38-cp38-manylinux_2_17_s390x.manylinux2014_s390x.whl", hash = "sha256:a46e0d1398138a75fb909369ffe6dfdcec6bab4d21794e80a9abf45fd2823f68"},
+    {file = "rustworkx-0.14.2-cp38-cp38-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:c16fb941e8f48aea96ee38471a1ae770ec68623864a9b0e4760aabf82c41fc2b"},
+    {file = "rustworkx-0.14.2-cp38-cp38-musllinux_1_1_aarch64.whl", hash = "sha256:fa92a97e5d35c6901553a812f31ca18305922c0ef06c2d7a9d20fbcc0769b4d1"},
+    {file = "rustworkx-0.14.2-cp38-cp38-musllinux_1_1_x86_64.whl", hash = "sha256:2e14b2956f2d06f5bb196bcd95f73008245eb6ffa9ee08f86ec369acf0cc04be"},
+    {file = "rustworkx-0.14.2-cp38-cp38-win32.whl", hash = "sha256:816d33f69f4189376e1bb8132dea1deef1cd019b25bd281f01b7f394fcadbdad"},
+    {file = "rustworkx-0.14.2-cp38-cp38-win_amd64.whl", hash = "sha256:4163f9c2c2d2158e053b30a39f74b0382b4c5a8a43f192c13b736e200b5e2025"},
+    {file = "rustworkx-0.14.2-cp39-cp39-macosx_10_12_x86_64.whl", hash = "sha256:a9b55a8f97799b159da96087176a0e97679dca0b6b5a14b3140aeda7e1050777"},
+    {file = "rustworkx-0.14.2-cp39-cp39-macosx_10_9_universal2.whl", hash = "sha256:edb2d67870e41d5a1e16288bca0758580fb6961e8b4dfc337557bdaab81ff016"},
+    {file = "rustworkx-0.14.2-cp39-cp39-macosx_11_0_arm64.whl", hash = "sha256:f058bdb50c5b0be731b96ffd789c6cec2a99e7f757a57763b2cc56004ed95af6"},
+    {file = "rustworkx-0.14.2-cp39-cp39-manylinux_2_12_i686.manylinux2010_i686.manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:ff900cb6ae2d4028ffe5a3075cfefa21b14929270844b172595e6de0d2f183eb"},
+    {file = "rustworkx-0.14.2-cp39-cp39-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:630177a80c68823fb2dd94733298377bd52c2ce3f66758ea0a63966fc2d7c08f"},
+    {file = "rustworkx-0.14.2-cp39-cp39-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:6a79c177a9e4f1c623554e01319fcb7b2a062ae26def7b85dc1f0539b7cdd874"},
+    {file = "rustworkx-0.14.2-cp39-cp39-manylinux_2_17_s390x.manylinux2014_s390x.whl", hash = "sha256:d5ff956ee6c8224b8225478bb72103d4fc6dd4a247c066da30927776e1b05690"},
+    {file = "rustworkx-0.14.2-cp39-cp39-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:ae61a4c58186b4e428947b92ac2aa0557bcd5071fe8102a542c4337f64091766"},
+    {file = "rustworkx-0.14.2-cp39-cp39-musllinux_1_1_aarch64.whl", hash = "sha256:5a96b6f96e1bb4e8ee337618d8af0a1aec16c2eda6ffd9968e16d161850d1e77"},
+    {file = "rustworkx-0.14.2-cp39-cp39-musllinux_1_1_x86_64.whl", hash = "sha256:49bc143729e0d64a51b0ec6d745665f067116db78ce958d5cbe0389e69c6e73c"},
+    {file = "rustworkx-0.14.2-cp39-cp39-win32.whl", hash = "sha256:f11e858a1804d5e276d18d6fc197f797adf5da82cd3382550abeef50196c5a7e"},
+    {file = "rustworkx-0.14.2-cp39-cp39-win_amd64.whl", hash = "sha256:b55e75ea35a225d6b0afbdd449665e3b907684347be6a38648bdbfd50e177bf0"},
+    {file = "rustworkx-0.14.2.tar.gz", hash = "sha256:bd649322c0649b71fa18cc70a9af027b549560415fa860d6894736029c277b13"},
+]
+
+[package.dependencies]
+numpy = ">=1.16.0,<2"
+
+[package.extras]
+all = ["matplotlib (>=3.0)", "pillow (>=5.4)"]
+graphviz = ["pillow (>=5.4)"]
+mpl = ["matplotlib (>=3.0)"]
 
 [[package]]
 name = "scikit-fuzzy"
@@ -4102,6 +4287,64 @@ pure-eval = "*"
 
 [package.extras]
 tests = ["cython", "littleutils", "pygments", "pytest", "typeguard"]
+
+[[package]]
+name = "stevedore"
+version = "5.2.0"
+description = "Manage dynamic plugins for Python applications"
+optional = true
+python-versions = ">=3.8"
+files = [
+    {file = "stevedore-5.2.0-py3-none-any.whl", hash = "sha256:1c15d95766ca0569cad14cb6272d4d31dae66b011a929d7c18219c176ea1b5c9"},
+    {file = "stevedore-5.2.0.tar.gz", hash = "sha256:46b93ca40e1114cea93d738a6c1e365396981bb6bb78c27045b7587c9473544d"},
+]
+
+[package.dependencies]
+pbr = ">=2.0.0,<2.1.0 || >2.1.0"
+
+[[package]]
+name = "symengine"
+version = "0.11.0"
+description = "Python library providing wrappers to SymEngine"
+optional = true
+python-versions = ">=3.8,<4"
+files = [
+    {file = "symengine-0.11.0-cp310-cp310-macosx_10_9_x86_64.whl", hash = "sha256:a5ab2281fe5b3cbe8fbe4411c4e2e4ce6788e4d653b5d31b002d05f4af13b7c7"},
+    {file = "symengine-0.11.0-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:1f0c83e91c90a0344fdb9f1d71970f09d4fad5715110c9651d6ebc9ac995f97e"},
+    {file = "symengine-0.11.0-cp310-cp310-manylinux_2_12_x86_64.manylinux2010_x86_64.whl", hash = "sha256:94c3e143bad732f858f5a8740bda640e24b491aa8cea30b2a68517a552060c84"},
+    {file = "symengine-0.11.0-cp310-cp310-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:8994e8e9b7273ce48e045d2a97e88b034bb99566bb3d0dd2a2ff79f2dccd4765"},
+    {file = "symengine-0.11.0-cp310-cp310-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:36c96584b5f852990e09904bb890623666cdc0bb83c5758f00939b540fcb2dc9"},
+    {file = "symengine-0.11.0-cp310-cp310-win_amd64.whl", hash = "sha256:fcfaf43781ae6e3e0b6b2f1da700e8ee6a0389426d3300925f4611323eb9b616"},
+    {file = "symengine-0.11.0-cp311-cp311-macosx_10_9_x86_64.whl", hash = "sha256:292efdba67ce3465c99ff1e35338857d982583bbf505ae79f111f8f4fa670367"},
+    {file = "symengine-0.11.0-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:7e935e0f5274d1ab456f3ba75a03dea1ee8a422dbd4d5d4f316653310a177962"},
+    {file = "symengine-0.11.0-cp311-cp311-manylinux_2_12_x86_64.manylinux2010_x86_64.whl", hash = "sha256:6f588199cb79b1c365005d52a3a8bc0967487dce5db77b864ee73735a5f4d2ec"},
+    {file = "symengine-0.11.0-cp311-cp311-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:bb419847f24944fd29e834a342c6d05577dd66b34942f65131d417d70c2e7926"},
+    {file = "symengine-0.11.0-cp311-cp311-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:10fe4f99d95dc222fd7c37217f80f06f15b9e9b78b951de3c5dc0648cbd1572e"},
+    {file = "symengine-0.11.0-cp311-cp311-win_amd64.whl", hash = "sha256:468b42d2626495808b21cc3b73a162d43c757cc97e4549b1911ec40331d3d491"},
+    {file = "symengine-0.11.0-cp312-cp312-macosx_10_9_x86_64.whl", hash = "sha256:07acd4ab7b147b913fdb62444ced626a9b66b9eefef5d3abfc4f65dccc411403"},
+    {file = "symengine-0.11.0-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:5fb1d62479c18cc00f025b53ba5f72a7bce92eabee9fec44256bb08d3c28d851"},
+    {file = "symengine-0.11.0-cp312-cp312-manylinux_2_12_x86_64.manylinux2010_x86_64.whl", hash = "sha256:ccd28886f3eea78a1b9150b636ae40acf7d27ac79b4cc9161ec46f592e366a47"},
+    {file = "symengine-0.11.0-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:517fec27be3741f89e1eea92b9e2f0cdca70fcd77d3fd5c4f8e4f13e6f04e8e4"},
+    {file = "symengine-0.11.0-cp312-cp312-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:54c5bcca900ec3bc6a20c749957310d52132a815bb3fca614fd66a7881626814"},
+    {file = "symengine-0.11.0-cp312-cp312-win_amd64.whl", hash = "sha256:6123f7e287cebeac9168e60eb6a9e9641f457617dbeee7b117fa7606fde84151"},
+    {file = "symengine-0.11.0-cp38-cp38-macosx_10_9_x86_64.whl", hash = "sha256:116e1f644b3505608b55e745d71b80521b2e72042f421cb70c91dbe7c6710655"},
+    {file = "symengine-0.11.0-cp38-cp38-macosx_11_0_arm64.whl", hash = "sha256:1c7913e264c95f44a52f181e4fff98afd9640651de149d0aee42d73b8b89860b"},
+    {file = "symengine-0.11.0-cp38-cp38-manylinux_2_12_x86_64.manylinux2010_x86_64.whl", hash = "sha256:ce5e0c14e925fb3600d6955b07314e9981ed389240e437f5dd42f08f70a18af8"},
+    {file = "symengine-0.11.0-cp38-cp38-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:cc6323c43a703fefb0a50d42430e63a590c18b2955cfa8022cf7c0f6d0f32b86"},
+    {file = "symengine-0.11.0-cp38-cp38-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:86d20163ad6c266e67fb9ad27970c7939bc3d5627487c8f0dc24cd26b9028e3f"},
+    {file = "symengine-0.11.0-cp38-cp38-win_amd64.whl", hash = "sha256:1f79feeeb1af286c29fb791537f243798229020a1ae6340b3d21eece3992783d"},
+    {file = "symengine-0.11.0-cp39-cp39-macosx_10_9_x86_64.whl", hash = "sha256:a78f905944ea9b9ef97e1afb355de4972fe84ed4cceadfc84b01366ce1f50d5b"},
+    {file = "symengine-0.11.0-cp39-cp39-macosx_11_0_arm64.whl", hash = "sha256:33d2dfea163b77b41fa4c56ade5c6ac4a91693502bc282ba2c645591ef94775d"},
+    {file = "symengine-0.11.0-cp39-cp39-manylinux_2_12_x86_64.manylinux2010_x86_64.whl", hash = "sha256:2a4412da691328a8e6b0622067807ec61ea97b87dee8d94b1eea2fab2eab8d91"},
+    {file = "symengine-0.11.0-cp39-cp39-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:c42229ba2fbf70975ebebb0ca5114f4633ba4158246bd7ce14ba9cf4a19828f8"},
+    {file = "symengine-0.11.0-cp39-cp39-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:66def111281fed93da17afd0c787abca48f651078bd3f7987ee4bfb997e26a15"},
+    {file = "symengine-0.11.0-cp39-cp39-win_amd64.whl", hash = "sha256:76b3fceb99d6967d207fbaa93a9cd477949093a63bdb4652cb3c601de85d5229"},
+    {file = "symengine-0.11.0-pp39-pypy39_pp73-macosx_10_9_x86_64.whl", hash = "sha256:7cde52f8c3e8eaa1bf7347a20e50445206cfe058815c61a2a7b86701b1690133"},
+    {file = "symengine-0.11.0-pp39-pypy39_pp73-manylinux_2_12_x86_64.manylinux2010_x86_64.whl", hash = "sha256:83da94f8487b54e391367d66cfdd268636811c4c660daa7b7e90ef9d7b659467"},
+    {file = "symengine-0.11.0-pp39-pypy39_pp73-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:11ae18741ee870ad897f4b1e45ad37587ab78c90a195083d87eb3db2ba66b12c"},
+    {file = "symengine-0.11.0-pp39-pypy39_pp73-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:cb8cc1314312af70b8a148611680f4cd91f8ef971c4fd4befa968cf7d6a2bd19"},
+    {file = "symengine-0.11.0.tar.gz", hash = "sha256:0dd30d29b804ebb7251bddec29c38c3b1fc15ea6953a2c57ee758d5f6fcba458"},
+]
 
 [[package]]
 name = "sympy"
@@ -4495,4 +4738,4 @@ solvers = ["discrete-optimization", "gymnasium", "joblib", "numpy", "ray", "stab
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.8"
-content-hash = "6ebd568c7b70dfbd5c454ccc0e35ddce169db6d52738f3b3e5b1b7eeadfa91f7"
+content-hash = "2c0d81394eb57d315875076079550c483293063a10cacc83e5cbe4f3c0a7e3b4"
