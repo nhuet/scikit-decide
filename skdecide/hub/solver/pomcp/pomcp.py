@@ -11,6 +11,10 @@ import math
 import random
 from typing import Callable
 
+from discrete_optimization.generic_tools.hyperparameters.hyperparameter import (
+    IntegerHyperparameter,
+)
+
 from skdecide import DiscreteDistribution, Domain, Memory, Solver
 from skdecide.builders.domain import (
     Actions,
@@ -39,6 +43,12 @@ class POMCP(Solver, DeterministicPolicies):
     """Partially-Observable Monte Carlo Planning solver."""
 
     T_domain = D
+
+    hyperparameters = [
+        IntegerHyperparameter(name="max_iterations", default=5000),
+        IntegerHyperparameter(name="max_depth", default=50),
+        IntegerHyperparameter(name="n_samples", default=5000),
+    ]
 
     def __init__(
         self,

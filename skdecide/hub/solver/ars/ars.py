@@ -9,6 +9,10 @@ from typing import Callable
 
 import gymnasium as gym
 import numpy as np
+from discrete_optimization.generic_tools.hyperparameters.hyperparameter import (
+    FloatHyperparameter,
+    IntegerHyperparameter,
+)
 
 from skdecide import Domain, Solver
 from skdecide.builders.domain import (
@@ -77,6 +81,15 @@ class AugmentedRandomSearch(Solver, Policies):
     """Augmented Random Search solver."""
 
     T_domain = D
+
+    hyperparameters = [
+        IntegerHyperparameter(name="n_epochs", default=1000),
+        IntegerHyperparameter(name="epoch_size", default=1000),
+        IntegerHyperparameter(name="directions", default=10),
+        IntegerHyperparameter(name="top_directions", default=3),
+        FloatHyperparameter(name="learning_rate", default=0.02),
+        FloatHyperparameter(name="policy_noise", default=0.03),
+    ]
 
     def __init__(
         self,

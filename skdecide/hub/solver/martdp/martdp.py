@@ -8,6 +8,12 @@ import os
 import sys
 from typing import Callable, Dict, Optional, Tuple
 
+from discrete_optimization.generic_tools.hyperparameters.hyperparameter import (
+    CategoricalHyperparameter,
+    FloatHyperparameter,
+    IntegerHyperparameter,
+)
+
 from skdecide import Domain, Solver, hub
 from skdecide.builders.domain import (
     Actions,
@@ -56,6 +62,21 @@ try:
         """
 
         T_domain = D
+
+        hyperparameters = [
+            IntegerHyperparameter(name="rollout_budget", default=100000),
+            IntegerHyperparameter(name="max_depth", default=1000),
+            IntegerHyperparameter(name="max_feasibility_trials", default=0),
+            FloatHyperparameter(name="graph_expansion_rate", default=0.1),
+            IntegerHyperparameter(name="residual_moving_average_window", default=100),
+            FloatHyperparameter(name="epsilon", default=0.0),
+            FloatHyperparameter(name="discount", default=1.0),
+            FloatHyperparameter(name="action_choice_noise", default=0.1),
+            FloatHyperparameter(name="dead_end_cost", default=10000.0),
+            CategoricalHyperparameter(
+                name="continuous_planning", choices=[True, False], default=True
+            ),
+        ]
 
         def __init__(
             self,

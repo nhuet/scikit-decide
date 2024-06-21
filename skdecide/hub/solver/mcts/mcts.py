@@ -11,6 +11,13 @@ from enum import Enum
 from math import sqrt
 from typing import Callable, Dict, List, Optional, Tuple
 
+from discrete_optimization.generic_tools.hyperparameters.hyperparameter import (
+    CategoricalHyperparameter,
+    EnumHyperparameter,
+    FloatHyperparameter,
+    IntegerHyperparameter,
+)
+
 from skdecide import Domain, Solver, hub
 from skdecide.builders.domain import (
     Actions,
@@ -91,6 +98,47 @@ try:
 
         class BackPropagator(Enum):
             GRAPH = mcts_options.BackPropagator.Graph
+
+        hyperparameters = [
+            IntegerHyperparameter(name="rollout_budget", default=100000),
+            IntegerHyperparameter(name="max_depth", default=1000),
+            IntegerHyperparameter(name="residual_moving_average_window", default=100),
+            FloatHyperparameter(name="epsilon", default=0.0),
+            FloatHyperparameter(name="discount", default=1.0),
+            FloatHyperparameter(name="ucb_constant", default=1.0 / sqrt(2.0)),
+            FloatHyperparameter(name="state_expansion_rate", default=0.1),
+            FloatHyperparameter(name="action_expansion_rate", default=0.1),
+            EnumHyperparameter(
+                name="transition_mode",
+                enum=TransitionMode,
+                default=TransitionMode.DISTRIBUTION,
+            ),
+            EnumHyperparameter(
+                name="tree_policy", enum=TreePolicy, default=TreePolicy.DEFAULT
+            ),
+            EnumHyperparameter(name="expander", enum=Expander, default=Expander.FULL),
+            EnumHyperparameter(
+                name="action_selector_optimization",
+                enum=ActionSelector,
+                default=ActionSelector.UCB1,
+            ),
+            EnumHyperparameter(
+                name="action_selector_execution",
+                enum=ActionSelector,
+                default=ActionSelector.BEST_Q_VALUE,
+            ),
+            EnumHyperparameter(
+                name="rollout_policy", enum=RolloutPolicy, default=RolloutPolicy.RANDOM
+            ),
+            EnumHyperparameter(
+                name="back_propagator",
+                enum=BackPropagator,
+                default=BackPropagator.GRAPH,
+            ),
+            CategoricalHyperparameter(
+                name="continuous_planning", choices=[True, False], default=True
+            ),
+        ]
 
         def __init__(
             self,
@@ -438,6 +486,13 @@ try:
         """MCTS solver to use with the multi-agent hierarchical `MAHD` solver
         as the multi-agent compound solver"""
 
+        hyperparameters = [
+            hp for hp in MCTS.hyperparameters if hp.name != "rollout_policy"
+        ] + [
+            IntegerHyperparameter(name="heuristic_confidence", default=1000),
+            FloatHyperparameter(name="action_choice_noise", default=0.1),
+        ]
+
         def __init__(
             self,
             domain_factory: Callable[[], MCTS.T_domain],
@@ -639,6 +694,21 @@ try:
         with some specific options including the famous UCB1 action selector to perform tree exploration
         """
 
+        hyperparameters = [
+            hp
+            for hp in MCTS.hyperparameters
+            if hp.name
+            not in {
+                "state_expansion_rate",
+                "action_expansion_rate",
+                "tree_policy",
+                "expander",
+                "action_selector_optimization",
+                "action_selector_execution",
+                "back_propagator",
+            }
+        ]
+
         def __init__(
             self,
             domain_factory: Callable[[], MCTS.T_domain],
@@ -649,7 +719,7 @@ try:
             epsilon: float = 0.0,  # not a stopping criterion by default
             discount: float = 1.0,
             ucb_constant: float = 1.0 / sqrt(2.0),
-            online_node_garbage: float = False,
+            online_node_garbage: bool = False,
             custom_policy: Callable[
                 [MCTS.T_domain, D.T_agent[D.T_observation]],
                 D.T_agent[D.T_concurrency[D.T_event]],
@@ -751,6 +821,21 @@ try:
     class HUCT(HMCTS):
         """UCT solver to use with the multi-agent hierarchical `MAHD` solver
         as the multi-agent compound solver"""
+
+        hyperparameters = [
+            hp
+            for hp in HMCTS.hyperparameters
+            if hp.name
+            not in {
+                "state_expansion_rate",
+                "action_expansion_rate",
+                "tree_policy",
+                "expander",
+                "action_selector_optimization",
+                "action_selector_execution",
+                "back_propagator",
+            }
+        ]
 
         def __init__(
             self,
