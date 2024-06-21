@@ -6,6 +6,12 @@ from __future__ import annotations
 
 from typing import Any, Callable, Dict, Optional, Type, Union
 
+from discrete_optimization.generic_tools.hyperparameters.hyperparameter import (
+    CategoricalHyperparameter,
+    FloatHyperparameter,
+    IntegerHyperparameter,
+)
+from stable_baselines3 import A2C, DDPG, DQN, PPO, SAC, TD3
 from stable_baselines3.common.base_class import BaseAlgorithm
 from stable_baselines3.common.callbacks import BaseCallback, ConvertCallback
 from stable_baselines3.common.policies import BasePolicy
@@ -37,6 +43,30 @@ class StableBaseline(Solver, Policies, Restorable):
 
     T_domain = D
 
+    hyperparameters = [
+        CategoricalHyperparameter(
+            name="algo_class",
+            default=PPO,
+            choices={
+                "A2C": A2C,
+                "DDPG": DDPG,
+                "DQN": DQN,
+                "PPO": PPO,
+                "SAC": SAC,
+                "TD3": TD3,
+            },
+        ),
+        FloatHyperparameter(
+            name="learning_rate",
+            low=1e-5,
+            high=1e-1,
+            log=True,
+        ),
+        IntegerHyperparameter(
+            name="total_timesteps", low=10000, high=50000, default=30000, step=10000
+        ),
+    ]
+
     def __init__(
         self,
         domain_factory: Callable[[], Domain],
@@ -63,6 +93,8 @@ class StableBaseline(Solver, Policies, Restorable):
         self._learn_config = learn_config if learn_config is not None else {}
         self._algo_kwargs = kwargs
         self.callback = callback
+        if "total_timesteps" in kwargs:
+            self._learn_config["total_timesteps"] = kwargs.pop("total_timesteps")
 
     @classmethod
     def _check_domain_additional(cls, domain: Domain) -> bool:
