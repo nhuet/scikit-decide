@@ -4,12 +4,18 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Callable, Dict, Optional, Set, Type, Union
+from typing import TYPE_CHECKING, Any, Callable, Dict, Optional, Set, Type, Union
 
 import gymnasium as gym
 import numpy as np
 import ray
+from discrete_optimization.generic_tools.hyperparameters.hyperparameter import (
+    CategoricalHyperparameter,
+    IntegerHyperparameter,
+    SubBrickKwargsHyperparameter,
+)
 from packaging.version import Version
+from ray.rllib.algorithms import DQN, PPO, SAC
 from ray.rllib.algorithms.algorithm import Algorithm, AlgorithmConfig
 from ray.rllib.algorithms.callbacks import DefaultCallbacks
 from ray.rllib.env.wrappers.multi_agent_env_compatibility import (
@@ -29,6 +35,13 @@ from skdecide.domains import MultiAgentRLDomain
 from skdecide.hub.domain.gym import AsLegacyGymV21Env
 from skdecide.hub.space.gym import GymSpace
 
+from .algos_config import (
+    AlgorithmConfigKwargs,
+    DQNConfigKwargs,
+    PPOConfigKwargs,
+    SACConfigKwargs,
+    algo_config_mapping,
+)
 from .custom_models import TFParametricActionsModel, TorchParametricActionsModel
 
 if TYPE_CHECKING:
@@ -49,6 +62,36 @@ class RayRLlib(Solver, Policies, Restorable):
 
     T_domain = D
 
+    hyperparameters = [
+        IntegerHyperparameter(name="train_iterations", low=1, high=3, default=2),
+        CategoricalHyperparameter(
+            name="algo_class",
+            choices={
+                "PPO": PPO,
+                "DQN": DQN,
+                "SAC": SAC,
+            },
+        ),
+        SubBrickKwargsHyperparameter(
+            name="config_kwargs_ppo",
+            name_in_kwargs="config_kwargs",
+            depends_on=("algo_class", [PPO]),
+            subbrick_cls=PPOConfigKwargs,
+        ),
+        SubBrickKwargsHyperparameter(
+            name="config_kwargs_dqn",
+            name_in_kwargs="config_kwargs",
+            depends_on=("algo_class", [DQN]),
+            subbrick_cls=DQNConfigKwargs,
+        ),
+        SubBrickKwargsHyperparameter(
+            name="config_kwargs_sac",
+            name_in_kwargs="config_kwargs",
+            depends_on=("algo_class", [SAC]),
+            subbrick_cls=SACConfigKwargs,
+        ),
+    ]
+
     def __init__(
         self,
         domain_factory: Callable[[], Domain],
@@ -60,6 +103,7 @@ class RayRLlib(Solver, Policies, Restorable):
             Callable[[str, Optional["EpisodeV2"], Optional["RolloutWorker"]], str]
         ] = None,
         action_embed_sizes: Optional[Dict[str, int]] = None,
+        config_kwargs: Optional[Dict[str, Any]] = None,
         callback: Callable[[RayRLlib], bool] = lambda solver: False,
     ) -> None:
         """Initialize Ray RLlib.
@@ -73,6 +117,9 @@ class RayRLlib(Solver, Policies, Restorable):
         policy_configs: The mapping from policy id (str) to additional config (dict) (leave default for single policy).
         policy_mapping_fn: The function mapping agent ids to policy ids (leave default for single policy).
         action_embed_sizes: The mapping from policy id (str) to action embedding size (only used with domains filtering allowed actions per state, default to 2)
+        config_kwargs: keyword arguments for the `AlgorithmConfigKwargs` class used to update programmatically the algorithm config.
+            Will be used by hyerparameters tuners like optuna. Should probably not be used directly by the user,
+            who could rather directly specify the correct `config`.
         callback: function called at each solver iteration.
             If returning true, the solve process stops and exit the current train iteration.
             However, if train_iterations > 1, another train loop will be entered after that.
@@ -106,6 +153,11 @@ class RayRLlib(Solver, Policies, Restorable):
         self._algo_callbacks: Optional[DefaultCallbacks] = None
         self._algo_worker_callbacks: Optional[DefaultCallbacks] = None
         self._algo_evaluation_worker_callbacks: Optional[DefaultCallbacks] = None
+
+        if config_kwargs is not None:
+            self._config = algo_config_mapping.get(
+                self._algo_class, AlgorithmConfigKwargs
+            ).update_algo_config(self._config, **config_kwargs)
 
     def get_policy(self) -> Dict[str, Policy]:
         """Return the computed policy."""
