@@ -51,7 +51,7 @@ def test_generic_optuna_experiment_monoproblem_with_ray_rllib():
 
     # Fixed kwargs per solver: either hyperparameters we do not want to search, or other parameters like time limits
     kwargs_fixed_by_solver = {
-        RayRLlib: dict(train_iterations=1, num_cpus_per_worker=0.5),
+        RayRLlib: dict(train_iterations=1, num_cpus_per_worker=0.3),
     }
 
     study = generic_optuna_experiment_monoproblem(

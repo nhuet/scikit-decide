@@ -148,12 +148,14 @@ def test_ray_rllib_solver():
     # check compatibility
     assert RayRLlib.check_domain(domain)
 
+    num_cpus_per_worker = 0.3
+
     # solver factory
     # NB: we define here a config_factory instead of instancing direcly the config,
     # as it cannot be reused later when loading the solver, because at that point
     # the config will have been "frozen" by the first training step
     config_factory = lambda: PPO.get_default_config().resources(
-        num_cpus_per_worker=0.5
+        num_cpus_per_worker=num_cpus_per_worker
     )  # set num of CPU<1 to avoid hanging for ever in github actions on macos 11
     solver_kwargs = dict(
         algo_class=PPO, train_iterations=1, gamma=0.95, train_batch_size_log2=8
@@ -167,7 +169,7 @@ def test_ray_rllib_solver():
     solver.solve()
     assert hasattr(solver, "_algo")
 
-    assert solver._algo.config.num_cpus_per_worker == 0.5
+    assert solver._algo.config.num_cpus_per_worker == num_cpus_per_worker
     assert solver._algo.config.gamma == 0.95
     assert solver._algo.config.train_batch_size == 256
 
@@ -212,7 +214,7 @@ def test_ray_rllib_solver_with_filtered_actions():
     # define and solve
     solver_kwargs = dict(algo_class=DQN, train_iterations=1)
     config = DQN.get_default_config().resources(
-        num_cpus_per_worker=0.5
+        num_cpus_per_worker=0.3
     )  # set num of CPU<1 to avoid hanging for ever in github actions on macos 11
     solver = RayRLlib(domain_factory=domain_factory, config=config, **solver_kwargs)
     solver.solve()
@@ -234,7 +236,7 @@ def test_ray_rllib_solver_on_single_agent_domain():
     # define and solve
     solver_kwargs = dict(algo_class=PPO, train_iterations=1)
     config = PPO.get_default_config().resources(
-        num_cpus_per_worker=0.5
+        num_cpus_per_worker=0.3
     )  # set num of CPU<1 to avoid hanging for ever in github actions on macos 11
     solver = RayRLlib(domain_factory=domain_factory, config=config, **solver_kwargs)
     solver.solve()
