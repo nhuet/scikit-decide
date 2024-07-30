@@ -585,7 +585,7 @@ jobs:
           #  - from others
           # to avoid openmp versions conflicts
           pytest -v -s tests/*/cpp
-          pytest -v -s tests/solvers/python
+          pytest -v -s tests/solvers/python --ignore tests/solvers/python/test_optuna_rayrllib.py
           pytest -v -s tests/scheduling
           pytest -v -s --ignore-glob tests/*/cpp --ignore tests/solvers/python --ignore tests/scheduling
 
@@ -678,7 +678,7 @@ jobs:
           #  - from others
           # to avoid openmp versions conflicts
           pytest -v -s tests/*/cpp
-          pytest -v -s tests/solvers/python
+          pytest -v -s tests/solvers/python --ignore tests/solvers/python/test_optuna_rayrllib.py
           pytest -v -s tests/scheduling
           pytest -v -s --ignore-glob tests/*/cpp --ignore tests/solvers/python --ignore tests/scheduling
 
@@ -769,7 +769,6 @@ jobs:
           # to avoid openmp versions conflicts
           pytest -v -s tests/*/cpp
           pytest -v -s tests/solvers/python --ignore tests/solvers/python/test_optuna_rayrllib.py
-          pytest -v -s tests/solvers/python/test_optuna_rayrllib.py
           pytest -v -s tests/scheduling
           pytest -v -s --ignore-glob tests/*/cpp --ignore tests/solvers/python --ignore tests/scheduling
 
