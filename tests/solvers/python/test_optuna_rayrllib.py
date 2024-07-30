@@ -18,9 +18,7 @@ class FakeRayRLlib(RayRLlib):
     generated_configs: List[Dict[str, Any]]
 
     def _solve(self) -> None:
-        if not hasattr(self, "_algo"):
-            self._init_algo()
-        FakeRayRLlib.generated_configs.append(self._algo.config.to_dict())
+        FakeRayRLlib.generated_configs.append(self._config.to_dict())
 
 
 def test_generic_optuna_experiment_monoproblem_with_ray_rllib():
