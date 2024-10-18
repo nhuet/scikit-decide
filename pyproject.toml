@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "scikit-decide"
-version = "0.0.0" # placeholder for poetry-dynamic-versioning
+version = "1.0.3.dev5+90a1f41c" # placeholder for poetry-dynamic-versioning
 description = "The AI framework for Reinforcement Learning, Automated Planning and Scheduling"
 authors = ["Airbus AI Research <scikit-decide@airbus.com>"]
 license = "MIT"
@@ -34,7 +34,7 @@ script = "builder.py"
 generate-setup-file = true
 
 [tool.poetry-dynamic-versioning]
-enable = true
+enable = false
 vcs = "git"
 format-jinja = """
     {%- if distance == 0 -%}
@@ -71,6 +71,9 @@ pygrib = [
     { version = "<=2.1.5", platform = "linux", optional = true },
     { version = ">=2.1.5", platform = "darwin", optional = true },
 ]
+pyRDDLGym = { version = ">=2.0, <2.1", optional = true }
+pyRDDLGym-rl = { version = ">=0.1", optional = true }
+rddlrepository = {version = ">=2.0", optional = true }
 
 [tool.poetry.extras]
 domains = [
@@ -82,7 +85,10 @@ domains = [
     "unified-planning",
     "cartopy",
     "pygrib",
-    "scipy"
+    "scipy",
+    "pyRDDLGym",
+    "pyRDDLGym-rl",
+    "rddlrepository"
 ]
 solvers = [
     "gymnasium",
@@ -113,7 +119,10 @@ all = [
     "up-pyperplan",
     "cartopy",
     "pygrib",
-    "scipy"
+    "scipy",
+    "pyRDDLGym",
+    "pyRDDLGym-rl",
+    "rddlrepository"
 ]
 
 [tool.poetry.plugins."skdecide.domains"]
@@ -136,6 +145,8 @@ Stochastic_RCPSP = "skdecide.hub.domain.rcpsp:Stochastic_RCPSP [domains]"
 SMRCPSPCalendar = "skdecide.hub.domain.rcpsp:SMRCPSPCalendar [domains]"
 MSRCPSP = "skdecide.hub.domain.rcpsp:MSRCPSP [domains]"
 MSRCPSPCalendar = "skdecide.hub.domain.rcpsp:MSRCPSPCalendar [domains]"
+RDDLDomain = "skdecide.hub.domain.rddl:RDDLDomain [domains]"
+RDDLDomainSimplifiedSpaces = "skdecide.hub.domain.rddl:RDDLDomainSimplifiedSpaces [domains]"
 
 [tool.poetry.plugins."skdecide.solvers"]
 AOstar = "skdecide.hub.solver.aostar:AOstar [solvers]"
