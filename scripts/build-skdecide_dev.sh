@@ -1,5 +1,4 @@
 #!/bin/bash
 set -ex
 
-yum install -y git zlib-devel
-yum install -y ccache
+yum install --setopt=sslverify=false -y git zlib-devel

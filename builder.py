@@ -106,7 +106,7 @@ class ExtensionBuilder(build_ext):
                 configure_args += ["-A", "x64"]
             build_args += ["--", "/m"]
         else:
-            build_args += ["--", "-j4"]
+            build_args += ["--", "-j1"]
 
         """
         env = os.environ.copy()

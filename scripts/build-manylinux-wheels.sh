@@ -25,15 +25,7 @@ mkdir -p /io/temp-wheels
 # Clean out any old existing wheels.
 find /io/temp-wheels/ -type f -delete
 
-
-#ccache setup
-if test -d .ccache; then
-    export CMAKE_CXX_COMPILER_LAUNCHER=ccache
-    export CMAKE_C_COMPILER_LAUNCHER=ccache
-    ccache --set-config cache_dir=$PWD/.ccache
-    ccache --set-config max_size=80M
-    ccache --set-config compression=true
-fi
+export PIP_TRUSTED_HOST="pypi.python.org pypi.org files.pythonhosted.org"
 
 # Uses the Python version requested as first argument, otherwise use 3.8 by default
 PYTHON_VERSION=${1:-3.8}
