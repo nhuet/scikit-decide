@@ -17,7 +17,6 @@ from typing import Any, Optional
 
 import gymnasium as gym
 import numpy as np
-from gymnasium.wrappers.compatibility import EnvCompatibility, LegacyEnv
 
 from skdecide import Domain, ImplicitSpace, Space, TransitionOutcome, Value
 from skdecide.builders.domain import (
@@ -35,6 +34,8 @@ from skdecide.builders.domain import (
     UnrestrictedActions,
 )
 from skdecide.hub.space.gym import GymSpace, ListSpace
+
+from .compatibility import EnvCompatibility, LegacyEnv
 
 
 class D(
