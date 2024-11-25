@@ -8,7 +8,6 @@ from __future__ import annotations
 import bisect
 import random
 import struct
-from collections import OrderedDict
 from collections.abc import Callable
 from copy import deepcopy
 from itertools import product
@@ -810,9 +809,7 @@ class GymDiscreteActionDomain(UnrestrictedActions):
                     ).get_elements()
                 )
             )
-            return ListSpace(
-                OrderedDict(zip(dkeys, dvalues)) for dvalues in generate(0)
-            )
+            return ListSpace(dict(zip(dkeys, dvalues)) for dvalues in generate(0))
         else:
             raise RuntimeError(
                 "Unknown Gym space element of type " + str(type(action_space))
