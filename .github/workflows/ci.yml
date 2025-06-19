@@ -8,8 +8,8 @@ on:
       - 'v[0-9]+.[0-9]+.[0-9]+'
   pull_request:
   workflow_dispatch:
-  schedule:
-    - cron:  '45 1 * * 3'
+#  schedule:
+#    - cron:  '45 1 * * 3'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
