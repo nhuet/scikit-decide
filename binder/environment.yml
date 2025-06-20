@@ -24,3 +24,8 @@ dependencies:
     - PyOpenGL
     - xarray
     - gymnasium[classic-control]==0.28.1
+    - folium
+    - pyRDDLGym-jax[dashboard]
+    - git+https://github.com/aiplan4eu/up-skdecide.git
+    - optuna
+    - optuna-dashboard
