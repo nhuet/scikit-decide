@@ -88,7 +88,10 @@ pyRDDLGym-gurobi = { version = ">=0.2", optional = true }
 rddlrepository = {version = ">=2.1", optional = true }
 torch-geometric = {version = ">=2.5", optional = true}
 plado = {version = ">=0.1.3", python = ">=3.10", optional = true}
-torch = {version = ">=2.3", optional = true }
+torch = [
+    { version = ">=2.3", optional = true, markers = "sys_platform != 'darwin' or platform_machine != 'x86_64'" },
+    { version = ">=2.2", optional = true, markers = "sys_platform == 'darwin' and platform_machine == 'x86_64'" }
+]
 
 [tool.poetry.extras]
 domains = [
