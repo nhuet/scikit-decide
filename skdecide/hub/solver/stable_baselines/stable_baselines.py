@@ -92,6 +92,8 @@ class StableBaseline(Solver, Policies, Restorable, Maskable):
         ),
     ]
 
+    deterministic_prediction = False
+
     def __init__(
         self,
         domain_factory: Callable[[], Domain],
@@ -250,14 +252,20 @@ class StableBaseline(Solver, Policies, Restorable, Maskable):
             action, _ = self._algo.predict(
                 self._unwrap_obs(observation),
                 action_masks=self.get_applicable_actions(),
+                deterministic=self.deterministic_prediction,
             )
         elif self.use_action_masking:
             # e.g. algo = MaskablePPO or MaskableGraphPPO
             action, _ = self._algo.predict(
-                self._unwrap_obs(observation), action_masks=self.get_action_mask()
+                self._unwrap_obs(observation),
+                action_masks=self.get_action_mask(),
+                deterministic=self.deterministic_prediction,
             )
         else:
-            action, _ = self._algo.predict(self._unwrap_obs(observation))
+            action, _ = self._algo.predict(
+                self._unwrap_obs(observation),
+                deterministic=self.deterministic_prediction,
+            )
         return self._wrap_action(action)
 
     def _is_policy_defined_for(self, observation: D.T_agent[D.T_observation]) -> bool:

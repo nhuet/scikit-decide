@@ -60,8 +60,8 @@ class SkdecideOnPolicyAlgorithm(OnPolicyAlgorithm):
         return get_action_masks(env=env)
 
     @staticmethod
-    def get_supervised_actions(env: GymEnv) -> np.ndarray:
-        return get_action_masks(env=env)
+    def get_expected_actions(env: GymEnv) -> np.ndarray:
+        return get_expected_actions(env=env)
 
     def collect_rollouts(
         self,
@@ -140,7 +140,7 @@ class SkdecideOnPolicyAlgorithm(OnPolicyAlgorithm):
                     # assert isinstance(env, SupervisedEnvironment)
 
                     # get expected action
-                    actions = get_expected_actions(env)
+                    actions = self.get_expected_actions(env)
                     # prepare input for evaluate_actions
                     tmp_rollout_buffer = self.rollout_buffer_class(  # type: ignore[assignment]
                         buffer_size=1,
