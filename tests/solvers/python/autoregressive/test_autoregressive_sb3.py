@@ -376,7 +376,7 @@ def test_autoregressive_heterograph2node_ppo(
         observations, actions, values = episodes[0]
         assert (
             len(actions) < max_steps - 1
-        )  # optimal would be 2, but not always found...
+        )  # optimal would be 3, but not always found...
 
 
 def test_autoregressive_heterograph2node_ppo_save_load(
@@ -509,3 +509,43 @@ def test_autoregressive_heterograph2node_ppo_save_load_nok(
             # load nok
             with pytest.raises(AssertionError):
                 solver.load(path)
+
+
+def test_autoregressive_heterograph2node_ppo_supervised(
+    graph_walk_with_heterograph_obs_domain_factory,
+    action_components_node_flag_indices,
+):
+    domain_factory = graph_walk_with_heterograph_obs_domain_factory
+
+    non_optimal_plan = [(1, 3), (1, 4)]
+
+    with StableBaseline(
+        domain_factory=domain_factory,
+        algo_class=AutoregressiveGraphPPO,
+        baselines_policy="HeteroGraph2NodePolicy",
+        autoregressive_action=True,
+        supervised=True,
+        plan=non_optimal_plan,
+        learn_config={"total_timesteps": 1000},
+        n_steps=100,
+        policy_kwargs=dict(
+            action_components_node_flag_indices=action_components_node_flag_indices,
+            n_graph2node_components=1,
+        ),
+    ) as solver:
+        # solve
+        solver.solve()
+        # rollout
+        max_steps = 20
+        episodes = rollout(
+            domain=domain_factory(),
+            solver=solver,
+            max_steps=max_steps,
+            num_episodes=10,
+            render=False,
+            return_episodes=True,
+            observation_formatter=None,
+            outcome_formatter=None,
+        )
+        for observations, actions, values in episodes:
+            print(actions)

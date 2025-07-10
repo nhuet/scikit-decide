@@ -32,6 +32,9 @@ from skdecide.builders.domain import (
 )
 from skdecide.builders.solver import Maskable, Policies, Restorable
 from skdecide.hub.domain.gym import AsGymnasiumEnv
+from skdecide.hub.solver.stable_baselines.supervised.wrappers import (
+    SupervisedActionWrapper,
+)
 from skdecide.hub.space.gym import GymSpace, MultiDiscreteSpace
 
 logger = logging.getLogger(__name__)
@@ -98,6 +101,8 @@ class StableBaseline(Solver, Policies, Restorable, Maskable):
         callback: Callable[[StableBaseline], bool] = lambda solver: False,
         use_action_masking: bool = False,
         autoregressive_action: bool = False,
+        supervised: bool = False,
+        plan: Optional[list[T_domain.T_event]] = None,
         **kwargs: Any,
     ) -> None:
         """Initialize StableBaselines.
@@ -123,6 +128,8 @@ class StableBaseline(Solver, Policies, Restorable, Maskable):
              before sampling actions.
           - hypotheses: action space should be a MultiDiscreteSpace
             and get_applicable_actions return an enumerable space.
+        supervised: whether to use the algo in supervised mode (if the mode is available)
+        plan: list of actions to follow when in supervised mode
         kwargs: keyword arguments passed to the algo_class constructor.
 
         """
@@ -134,6 +141,8 @@ class StableBaseline(Solver, Policies, Restorable, Maskable):
         self.callback = callback
         self.use_action_masking = use_action_masking
         self.autoregressive_action = autoregressive_action
+        self.supervised = supervised
+        self._plan = plan
         self._applicable_actions: Optional[npt.NDArray[int]] = None
         domain = self._domain_factory()
         self._learning_env = self._as_gymnasium_env(domain)
@@ -182,11 +191,19 @@ class StableBaseline(Solver, Policies, Restorable, Maskable):
 
     def _as_gymnasium_env(self, domain: Domain) -> gym.Env:
         if self.autoregressive_action:
-            return as_masked_autoregressive_gymnasium_env(domain)
+            env = as_masked_autoregressive_gymnasium_env(domain)
         elif self.use_action_masking:
-            return as_masked_gymnasium_env(domain)
+            env = as_masked_gymnasium_env(domain)
         else:
-            return as_gymnasium_env(domain)
+            env = as_gymnasium_env(domain)
+        if self.supervised:
+            if self._plan is None:
+                raise ValueError(
+                    "The expected plan must be specified in supervised mode."
+                )
+            env = SupervisedActionWrapper(env=env, plan=self._plan)
+
+        return env
 
     @classmethod
     def _check_domain_additional(cls, domain: Domain) -> bool:
@@ -219,6 +236,9 @@ class StableBaseline(Solver, Policies, Restorable, Maskable):
             callbacks_list = [ConvertCallback(callbacks_list)]
         callbacks_list.append(Sb3Callback(callback=self.callback, solver=self))
         learn_config["callback"] = callbacks_list
+
+        if hasattr(self._algo, "supervised"):
+            self._algo.supervised = self.supervised
 
         self._algo.learn(**learn_config)
 
@@ -257,6 +277,8 @@ class StableBaseline(Solver, Policies, Restorable, Maskable):
 
     def get_policy(self) -> BasePolicy:
         """Return the computed policy."""
+        if not hasattr(self, "_algo"):
+            self._init_algo()
         return self._algo.policy
 
 

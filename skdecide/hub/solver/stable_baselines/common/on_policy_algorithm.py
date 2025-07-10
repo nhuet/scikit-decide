@@ -15,6 +15,11 @@ from stable_baselines3.common.type_aliases import GymEnv, TensorDict
 from stable_baselines3.common.utils import obs_as_tensor
 from stable_baselines3.common.vec_env import VecEnv
 
+from skdecide.hub.solver.stable_baselines.supervised.utils import (
+    get_expected_actions,
+    is_supervised_supported,
+)
+
 
 class SkdecideOnPolicyAlgorithm(OnPolicyAlgorithm):
     """Base class for On-Policy algorithms (ex: A2C/PPO) to be inherited by scikit-decide custom algorithms.
@@ -33,6 +38,13 @@ class SkdecideOnPolicyAlgorithm(OnPolicyAlgorithm):
 
     """
 
+    supervised = False
+    """Whether this algorithm is used in 'supervised' mode.
+
+    If True, we assume that the environment is wrapped so that it exposes a `expected_actions()` method.
+
+    """
+
     @staticmethod
     def obs_as_tensor(
         obs: Union[np.ndarray, dict[str, np.ndarray]], device: th.device
@@ -45,6 +57,10 @@ class SkdecideOnPolicyAlgorithm(OnPolicyAlgorithm):
 
     @staticmethod
     def get_action_masks(env: GymEnv) -> np.ndarray:
+        return get_action_masks(env=env)
+
+    @staticmethod
+    def get_supervised_actions(env: GymEnv) -> np.ndarray:
         return get_action_masks(env=env)
 
     def collect_rollouts(
@@ -85,7 +101,12 @@ class SkdecideOnPolicyAlgorithm(OnPolicyAlgorithm):
             and not self.is_masking_supported(env)
         ):
             raise ValueError(
-                "Environment does not support action masking. Consider using ActionMasker wrapper"
+                "Environment does not support action masking. Consider using ActionMasker wrapper."
+            )
+
+        if self.supervised and not is_supervised_supported(env):
+            raise ValueError(
+                "Environment does not support supervised actions. Consider using SupervisedActionWrapper wrapper."
             )
 
         if use_masking and not self.support_action_masking:
@@ -115,13 +136,70 @@ class SkdecideOnPolicyAlgorithm(OnPolicyAlgorithm):
                 if use_masking and self.support_action_masking:
                     action_masks = self.get_action_masks(env)
 
-                if self.support_action_masking:
-                    actions, values, log_probs = self.policy(
-                        obs_tensor, action_masks=action_masks
+                if self.supervised:
+                    # assert isinstance(env, SupervisedEnvironment)
+
+                    # get expected action
+                    actions = get_expected_actions(env)
+                    # prepare input for evaluate_actions
+                    tmp_rollout_buffer = self.rollout_buffer_class(  # type: ignore[assignment]
+                        buffer_size=1,
+                        observation_space=self.observation_space,
+                        action_space=self.action_space,
+                        device=self.device,
+                        gamma=self.gamma,
+                        gae_lambda=self.gae_lambda,
+                        n_envs=1,
+                        **self.rollout_buffer_kwargs,
                     )
+                    tmp_obs = self._last_obs
+                    tmp_actions = actions
+                    tmp_rewards = np.zeros((1, 1))
+                    tmp_episode_starts = self._last_episode_starts
+                    tmp_values = th.zeros((1, 1))
+                    tmp_log_probs = th.zeros((1, 1))
+                    if isinstance(
+                        tmp_rollout_buffer,
+                        (MaskableRolloutBuffer, MaskableDictRolloutBuffer),
+                    ):
+                        tmp_rollout_buffer.add(
+                            tmp_obs,
+                            tmp_actions,
+                            tmp_rewards,
+                            tmp_episode_starts,
+                            tmp_values,
+                            tmp_log_probs,
+                            action_masks=action_masks,
+                        )
+                    else:
+                        tmp_rollout_buffer.add(
+                            tmp_obs,
+                            tmp_actions,
+                            tmp_rewards,
+                            tmp_episode_starts,
+                            tmp_values,
+                            tmp_log_probs,
+                        )
+                    sample = next(tmp_rollout_buffer.get(1))
+                    if self.support_action_masking:
+                        values, log_probs, _ = self.policy.evaluate_actions(
+                            sample.observations,
+                            sample.actions,
+                            action_masks=sample.action_masks,
+                        )
+
+                    else:
+                        values, log_probs, _ = self.policy.evaluate_actions(
+                            sample.observations, sample.actions
+                        )
                 else:
-                    actions, values, log_probs = self.policy(obs_tensor)
-            actions = actions.cpu().numpy()
+                    if self.support_action_masking:
+                        actions_tensor, values, log_probs = self.policy(
+                            obs_tensor, action_masks=action_masks
+                        )
+                    else:
+                        actions_tensor, values, log_probs = self.policy(obs_tensor)
+                    actions = actions_tensor.cpu().numpy()
 
             # Rescale and perform action
             clipped_actions = actions

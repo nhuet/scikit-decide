@@ -269,10 +269,7 @@ class HeteroGraphWalkEnv(gym.Env[gym.spaces.GraphInstance, int]):
             dist = 1
 
         terminated = current_node == self.TERMINAL_POSITION
-        if terminated:
-            reward = 0
-        else:
-            reward = -dist
+        reward = -dist
         return self.state, reward, terminated, False, {}
 
     def action_masks(self) -> npt.NDArray[int]:
