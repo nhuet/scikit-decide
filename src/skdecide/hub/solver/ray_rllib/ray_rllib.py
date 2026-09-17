@@ -55,7 +55,6 @@ from .action_masking.utils.spaces.space_utils import (
     TRUE_OBS,
     create_agent_action_mask_space,
 )
-from .gnn.evaluation.rollout_worker import Graph2NodeRolloutWorker, GraphRolloutWorker
 from .gnn.utils.monkey_patch import (
     unmonkey_patch_rllib_for_graph,
 )
@@ -405,87 +404,37 @@ class RayRLlib(Solver, Policies, Restorable):
                 "MultiAgent" + self._config.replay_buffer_config["type"]
             )
 
-        # monkey patch rllib for graph handling
-        # NB: We would rather do
-        # ```python
-        # self._algo.env_runner_group.foreach_worker(
-        #     lambda worker: monkey_patch_rllib_for_graph()
-        # )
-        # ```
-        # as for unpatching at the end of `_solve()`.
-        # But at that point the env_runner_group has not been yet properly initialized with all the workers
-        # only the local worker exists. (It will be updated at the beginning of the training process, from the config.)
-        # So instead we use a custom RolloutWorker class that monkey-patch when initialized.
-        if self._is_graph_obs or self._is_graph_multiinput_obs:
-            if self._graph2node:
-                if not isinstance(
-                    self._config.env_runner_cls,
-                    (type(None), Graph2NodeRolloutWorker),
-                ):
-                    logger.warning(
-                        "The EnvRunner class to use for environment rollouts (data collection) will be overriden "
-                        "by Graph2NodeRolloutWorker so that buffers manage properly graphs concatenation."
-                    )
-                self._config.env_runners(env_runner_cls=Graph2NodeRolloutWorker)
-            else:
-                if not isinstance(
-                    self._config.env_runner_cls, (type(None), GraphRolloutWorker)
-                ):
-                    logger.warning(
-                        "The EnvRunner class to use for environment rollouts (data collection) will be overriden "
-                        "by GraphRolloutWorker so that buffers manage properly graphs concatenation."
-                    )
-                self._config.env_runners(env_runner_cls=GraphRolloutWorker)
-
-        # custom model?
-        if self._action_masking:
-            if self._is_graph_obs or self._is_graph_multiinput_obs:
-                # let the observation pass as is
-                self._config.experimental(
-                    _disable_preprocessor_api=True,
-                )
-                if self._config.get("framework") not in ["torch"]:
-                    raise NotImplementedError(
-                        "Graph observation with RLlib requires PyTorch framework."
-                    )
-            if self._config.get("framework") not in ["torch"]:
-                raise NotImplementedError(
-                    "Action masking (invalid action filtering) with RLlib requires PyTorch framework"
-                )
-            if self._algo_class.__name__ not in ["PPO"]:
-                raise NotImplementedError(
-                    "Action masking (invalid action filtering) with RLlib only available for PPO for now."
-                )
-            if self._graph2node:
-                raise NotImplementedError(
-                    "RLlib + GNN +action masking not yet implemented with new api stack"
-                )
-            if self._algo_class.__name__ == "DQN":
-                self._config.training(
-                    hiddens=[],
-                    dueling=False,
-                )
-
-            elif self._algo_class.__name__ == "PPO":
-                self._config.training(
-                    model={"vf_share_layers": True},
-                )
-        elif self._is_graph_obs:
-            if self._config.get("framework") not in ["torch"]:
-                raise NotImplementedError(
-                    "Graph observation with RLlib requires PyTorch framework."
-                )
-            raise NotImplementedError(
-                "RLlib + GNN not yet implemented with new api stack"
-            )
-        elif self._is_graph_multiinput_obs:
-            if self._config.get("framework") not in ["torch"]:
-                raise NotImplementedError(
-                    "Graph observation with RLlib requires PyTorch framework."
-                )
-            raise NotImplementedError(
-                "RLlib + GNN not yet implemented with new api stack"
-            )
+        # # monkey patch rllib for graph handling
+        # # NB: We would rather do
+        # # ```python
+        # # self._algo.env_runner_group.foreach_worker(
+        # #     lambda worker: monkey_patch_rllib_for_graph()
+        # # )
+        # # ```
+        # # as for unpatching at the end of `_solve()`.
+        # # But at that point the env_runner_group has not been yet properly initialized with all the workers
+        # # only the local worker exists. (It will be updated at the beginning of the training process, from the config.)
+        # # So instead we use a custom RolloutWorker class that monkey-patch when initialized.
+        # if self._is_graph_obs or self._is_graph_multiinput_obs:
+        #     if self._graph2node:
+        #         if not isinstance(
+        #             self._config.env_runner_cls,
+        #             (type(None), Graph2NodeRolloutWorker),
+        #         ):
+        #             logger.warning(
+        #                 "The EnvRunner class to use for environment rollouts (data collection) will be overriden "
+        #                 "by Graph2NodeRolloutWorker so that buffers manage properly graphs concatenation."
+        #             )
+        #         self._config.env_runners(env_runner_cls=Graph2NodeRolloutWorker)
+        #     else:
+        #         if not isinstance(
+        #             self._config.env_runner_cls, (type(None), GraphRolloutWorker)
+        #         ):
+        #             logger.warning(
+        #                 "The EnvRunner class to use for environment rollouts (data collection) will be overriden "
+        #                 "by GraphRolloutWorker so that buffers manage properly graphs concatenation."
+        #             )
+        #         self._config.env_runners(env_runner_cls=GraphRolloutWorker)
 
         # connector preprocessing observations for rl_module
         if self._env_to_module_connector is None:
@@ -502,14 +451,46 @@ class RayRLlib(Solver, Policies, Restorable):
             env_to_module_connector = self._env_to_module_connector
         self._config.env_runners(env_to_module_connector=env_to_module_connector)
 
-        # rl-module config
+        # rl-module config (custom or defined according to classic vs graph obs and masking vs no masking=
         if self._rl_module_spec is None:
             if self._action_masking:
+                if self._config.get("framework") not in ["torch"]:
+                    raise NotImplementedError(
+                        "For now action masking with new api stack only available for pytorch framework "
+                        "if you do not use your own RL module."
+                    )
                 if self._algo_class.__name__ != "PPO":
                     raise NotImplementedError(
-                        "For now action masking with new api stack only available for PPO."
+                        "For now action masking with new api stack only available for PPO "
+                        "if you do not use your own RL module."
                     )
+                if self._graph2node:
+                    raise NotImplementedError(
+                        "RLlib + GNN +action masking not yet implemented with new api stack."
+                    )
+                if self._algo_class.__name__ == "DQN":
+                    self._config.training(
+                        hiddens=[],
+                        dueling=False,
+                    )
+
                 default_module_class = ActionMaskingTorchRLModule
+            elif self._is_graph_obs:
+                if self._config.get("framework") not in ["torch"]:
+                    raise NotImplementedError(
+                        "Graph observation with RLlib requires PyTorch framework or use your own RL module."
+                    )
+                raise NotImplementedError(
+                    "RLlib + GNN not yet implemented with new api stack."
+                )
+            elif self._is_graph_multiinput_obs:
+                if self._config.get("framework") not in ["torch"]:
+                    raise NotImplementedError(
+                        "Graph observation with RLlib requires PyTorch framework or use your own RL module."
+                    )
+                raise NotImplementedError(
+                    "RLlib + GNN not yet implemented with new api stack."
+                )
             else:
                 default_module_class = None
 
