@@ -20,6 +20,10 @@ from ray.rllib.algorithms import DQN, PPO, SAC
 from ray.rllib.algorithms.algorithm import Algorithm, AlgorithmConfig
 from ray.rllib.algorithms.callbacks import DefaultCallbacks
 from ray.rllib.callbacks.callbacks import RLlibCallback
+from ray.rllib.connectors.common import (
+    AddObservationsFromEpisodesToBatch,
+    AgentToModuleMapping,
+)
 from ray.rllib.connectors.connector_v2 import ConnectorV2
 from ray.rllib.connectors.env_to_module import FlattenObservations
 from ray.rllib.core.rl_module import (
@@ -45,24 +49,26 @@ from skdecide.builders.solver import Policies, Restorable
 from skdecide.core import EnumerableSpace, Mask, autocast
 from skdecide.domains import MultiAgentRLDomain
 from skdecide.hub.domain.gym import AsLegacyGymV21Env
-from skdecide.hub.space.gym import GymSpace
-
-from .action_masking.connectors.flatten_observations import (
+from skdecide.hub.solver.ray_rllib.action_masking.algorithms.dqn.torch.action_masking_dqn_torch_rl_module import (
+    ActionMaskingDQNTorchRLModule,
+)
+from skdecide.hub.solver.ray_rllib.action_masking.connectors.flatten_observations import (
     FlattenMultiagentMaskedObservations,
 )
-from .action_masking.rl_modules.dqn import ActionMaskingDQNTorchRLModule
-from .action_masking.utils.spaces.space_utils import (
+from skdecide.hub.solver.ray_rllib.action_masking.utils.spaces.space_utils import (
     ACTION_MASK,
     TRUE_OBS,
     create_agent_action_mask_space,
 )
-from .gnn.utils.monkey_patch import (
+from skdecide.hub.solver.ray_rllib.gnn.algorithms.ppo.ppo_catalog import GraphPPOCatalog
+from skdecide.hub.solver.ray_rllib.gnn.utils.monkey_patch import (
     unmonkey_patch_rllib_for_graph,
 )
-from .gnn.utils.spaces.space_utils import (
+from skdecide.hub.solver.ray_rllib.gnn.utils.spaces.space_utils import (
     convert_graph_to_dict,
 )
-from .utils import compute_action_new_api_stack_multi_agent
+from skdecide.hub.solver.ray_rllib.utils import compute_action_new_api_stack_multi_agent
+from skdecide.hub.space.gym import GymSpace
 
 logger = logging.getLogger(__name__)
 
@@ -436,29 +442,21 @@ class RayRLlib(Solver, Policies, Restorable):
         #             )
         #         self._config.env_runners(env_runner_cls=GraphRolloutWorker)
 
-        # connector preprocessing observations for rl_module
-        if self._env_to_module_connector is None:
-            if not (self._is_graph_obs or self._is_graph_multiinput_obs):
-                if self._action_masking:
-                    env_to_module_connector = (
-                        lambda env,
-                        spaces,
-                        device: FlattenMultiagentMaskedObservations()
-                    )
-                else:
-                    env_to_module_connector = (
-                        lambda env, spaces, device: FlattenObservations(
-                            multi_agent=True
-                        )
-                    )
-            else:
-                env_to_module_connector = None
-        else:
-            env_to_module_connector = self._env_to_module_connector
-        self._config.env_runners(env_to_module_connector=env_to_module_connector)
-
         # rl-module config (custom or defined according to classic vs graph obs and masking vs no masking=
         if self._rl_module_spec is None:
+            # catalog_class => encoder class (e.g. GNN for graph obs)
+            if self._is_graph_obs:
+                if self._algo_class is PPO:
+                    catalog_class = GraphPPOCatalog
+                else:
+                    raise NotImplementedError(
+                        f"Graph observation with new api stack not available for {self._algo_class.__name__}, "
+                        "use your own RL module."
+                    )
+            else:
+                catalog_class = None
+
+            # rl-module class => e.g. apply mask to logits
             if self._action_masking:
                 if self._config.get("framework") not in ["torch"]:
                     raise NotImplementedError(
@@ -467,22 +465,21 @@ class RayRLlib(Solver, Policies, Restorable):
                     )
                 if self._graph2node:
                     raise NotImplementedError(
-                        "RLlib + GNN +action masking not yet implemented with new api stack."
+                        "RLlib + GNN + action masking not yet implemented with new api stack."
                     )
-                match self._algo_class.__name__:
-                    case "PPO":
-                        default_module_class = ActionMaskingPPOTorchRLModule
-                    case "DQN":
-                        default_module_class = ActionMaskingDQNTorchRLModule
-                        self._config.training(
-                            hiddens=[],
-                            dueling=False,
-                        )
-                    case _:
-                        raise NotImplementedError(
-                            f"Action masking with new api stack not available for {self._algo_class.__name__}, "
-                            "use your own RL module."
-                        )
+                if self._algo_class is PPO:
+                    default_module_class = ActionMaskingPPOTorchRLModule
+                elif self._algo_class is DQN:
+                    default_module_class = ActionMaskingDQNTorchRLModule
+                    self._config.training(
+                        hiddens=[],
+                        dueling=False,
+                    )
+                else:
+                    raise NotImplementedError(
+                        f"Action masking with new api stack not available for {self._algo_class.__name__}, "
+                        "use your own RL module."
+                    )
 
             elif self._is_graph_obs:
                 if self._config.get("framework") not in ["torch"]:
@@ -513,6 +510,7 @@ class RayRLlib(Solver, Policies, Restorable):
                         # action_space=rl_module_act_spaces[module_id],
                         # observation_space=rl_module_act_spaces[module_id],
                         model_config=self._model_configs.get(module_id, {}),
+                        catalog_class=catalog_class,
                     )
                     for module_id in self._agent2module_id.values()
                 }
@@ -536,6 +534,39 @@ class RayRLlib(Solver, Policies, Restorable):
             policy_mapping_fn=policy_mapping_fn,
         )
 
+        # connector preprocessing observations for rl_module  (e.g. flatten observations)
+        if self._env_to_module_connector is None:
+            if not (self._is_graph_obs or self._is_graph_multiinput_obs):
+                if self._action_masking:
+                    env_to_module_connector = (
+                        lambda env,
+                        spaces,
+                        device: FlattenMultiagentMaskedObservations()
+                    )
+                else:
+                    env_to_module_connector = (
+                        lambda env, spaces, device: FlattenObservations(
+                            multi_agent=True
+                        )
+                    )
+            elif self._is_graph_obs:
+                env_to_module_connector = lambda env, spaces, device: [
+                    # default connectors except for last 2 (batch and tensor conversion
+                    AddObservationsFromEpisodesToBatch(),
+                    AgentToModuleMapping(
+                        rl_module_specs=self._config.rl_module_spec.rl_module_specs,
+                        agent_to_module_mapping_fn=self._config.policy_mapping_fn,
+                    ),
+                    GraphInstanceToBatchData(),
+                ]
+            else:
+                # no flattening to keep a graph for the GNN but transfo to thg.data.Data
+                env_to_module_connector = None
+        else:
+            env_to_module_connector = self._env_to_module_connector
+        self._config.env_runners(env_to_module_connector=env_to_module_connector)
+
+        # gym env wrapper for env runners
         register_env(
             "skdecide_env",
             lambda _,
