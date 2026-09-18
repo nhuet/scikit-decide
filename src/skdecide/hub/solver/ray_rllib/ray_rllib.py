@@ -438,15 +438,21 @@ class RayRLlib(Solver, Policies, Restorable):
 
         # connector preprocessing observations for rl_module
         if self._env_to_module_connector is None:
-            if self._action_masking:
-                env_to_module_connector = (
-                    lambda env, spaces, device: FlattenMultiagentMaskedObservations()
-                )
+            if not (self._is_graph_obs or self._is_graph_multiinput_obs):
+                if self._action_masking:
+                    env_to_module_connector = (
+                        lambda env,
+                        spaces,
+                        device: FlattenMultiagentMaskedObservations()
+                    )
+                else:
+                    env_to_module_connector = (
+                        lambda env, spaces, device: FlattenObservations(
+                            multi_agent=True
+                        )
+                    )
             else:
-                env_to_module_connector = (
-                    lambda env, spaces, device: FlattenObservations(multi_agent=True)
-                )
-
+                env_to_module_connector = None
         else:
             env_to_module_connector = self._env_to_module_connector
         self._config.env_runners(env_to_module_connector=env_to_module_connector)
@@ -483,6 +489,7 @@ class RayRLlib(Solver, Policies, Restorable):
                     raise NotImplementedError(
                         "Graph observation with RLlib requires PyTorch framework or use your own RL module."
                     )
+                default_module_class = None
                 # raise NotImplementedError(
                 #     "RLlib + GNN not yet implemented with new api stack."
                 # )

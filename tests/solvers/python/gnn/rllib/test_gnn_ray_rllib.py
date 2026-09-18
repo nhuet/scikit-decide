@@ -8,6 +8,7 @@ import os
 import pytest
 import ray
 from pytest_cases import fixture
+from ray.rllib.algorithms import PPO
 
 from skdecide.hub.solver.ray_rllib import RayRLlib
 from skdecide.hub.solver.ray_rllib.gnn.algorithms import GraphPPO
@@ -27,24 +28,21 @@ def ray_init():
 def graphppo_config():
     return (
         GraphPPO.get_default_config()
-        # set num of CPU<1 to avoid hanging for ever in github actions on macos 11
-        .resources(
-            num_cpus_per_worker=0.5,
+        .env_runners(
+            # set num of CPU<1 to avoid hanging for ever in github actions on macos 11)
+            num_cpus_per_env_runner=0.5
         )
         # small number to increase speed of the unit test
-        .training(train_batch_size=256)
+        .training(minibatch_size=32)
         # uncomment next line to run in local mode and debug more easily
-        # .env_runners(num_env_runners=0).learners(num_learners=0)
+        .env_runners(num_env_runners=0)
+        .learners(num_learners=0)
     )
 
 
-@pytest.mark.xfail(
-    reason="GNN not yet implemented with new api stack of ray.rllib",
-    raises=NotImplementedError,
-)
 def test_ppo(unmasked_graph_domain_factory, graphppo_config, ray_init):
     domain_factory = unmasked_graph_domain_factory
-    solver_kwargs = dict(algo_class=GraphPPO, train_iterations=1)
+    solver_kwargs = dict(algo_class=PPO, train_iterations=1)
     with RayRLlib(
         domain_factory=domain_factory, config=graphppo_config, **solver_kwargs
     ) as solver:
