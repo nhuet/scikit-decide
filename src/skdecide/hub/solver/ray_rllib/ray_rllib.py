@@ -33,7 +33,7 @@ from ray.rllib.env.wrappers.multi_agent_env_compatibility import (
     MultiAgentEnvCompatibility,
 )
 from ray.rllib.examples.rl_modules.classes.action_masking_rlm import (
-    ActionMaskingTorchRLModule,
+    ActionMaskingTorchRLModule as ActionMaskingPPOTorchRLModule,
 )
 from ray.rllib.policy.policy import Policy
 from ray.rllib.utils.typing import ModuleID
@@ -50,6 +50,7 @@ from skdecide.hub.space.gym import GymSpace
 from .action_masking.connectors.flatten_observations import (
     FlattenMultiagentMaskedObservations,
 )
+from .action_masking.rl_modules.dqn import ActionMaskingDQNTorchRLModule
 from .action_masking.utils.spaces.space_utils import (
     ACTION_MASK,
     TRUE_OBS,
@@ -459,22 +460,25 @@ class RayRLlib(Solver, Policies, Restorable):
                         "For now action masking with new api stack only available for pytorch framework "
                         "if you do not use your own RL module."
                     )
-                if self._algo_class.__name__ != "PPO":
-                    raise NotImplementedError(
-                        "For now action masking with new api stack only available for PPO "
-                        "if you do not use your own RL module."
-                    )
                 if self._graph2node:
                     raise NotImplementedError(
                         "RLlib + GNN +action masking not yet implemented with new api stack."
                     )
-                if self._algo_class.__name__ == "DQN":
-                    self._config.training(
-                        hiddens=[],
-                        dueling=False,
-                    )
+                match self._algo_class.__name__:
+                    case "PPO":
+                        default_module_class = ActionMaskingPPOTorchRLModule
+                    case "DQN":
+                        default_module_class = ActionMaskingDQNTorchRLModule
+                        self._config.training(
+                            hiddens=[],
+                            dueling=False,
+                        )
+                    case _:
+                        raise NotImplementedError(
+                            f"Action masking with new api stack not available for {self._algo_class.__name__}, "
+                            "use your own RL module."
+                        )
 
-                default_module_class = ActionMaskingTorchRLModule
             elif self._is_graph_obs:
                 if self._config.get("framework") not in ["torch"]:
                     raise NotImplementedError(

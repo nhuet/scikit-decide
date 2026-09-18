@@ -10,13 +10,14 @@ import os
 import tempfile
 from copy import deepcopy
 from enum import Enum
-from typing import Dict, NamedTuple, Optional, Union
+from typing import NamedTuple, Optional, Union
 
 import gymnasium as gym
 import pytest
 import ray
 import torch
 from pytest import fixture
+from pytest_cases import parametrize
 from ray.rllib.algorithms.dqn import DQN
 from ray.rllib.algorithms.dqn.default_dqn_rl_module import (
     QF_LOGITS,
@@ -33,6 +34,9 @@ from ray.rllib.core.rl_module import MultiRLModuleSpec, RLModuleSpec
 from ray.rllib.examples.rl_modules.classes.action_masking_rlm import (
     ActionMaskingRLModule,
 )
+from ray.rllib.examples.rl_modules.classes.action_masking_rlm import (
+    ActionMaskingTorchRLModule as ActionMaskingPPOTorchRLModule,
+)
 from ray.rllib.utils.torch_utils import FLOAT_MIN, nn
 from ray.rllib.utils.typing import TensorType
 
@@ -42,7 +46,14 @@ from skdecide.builders.domain.events import Actions
 from skdecide.core import autocast_all
 from skdecide.hub.domain.gym import GymDomain
 from skdecide.hub.domain.rock_paper_scissors import RockPaperScissors
-from skdecide.hub.solver.ray_rllib.ray_rllib import AsRLlibMultiAgentEnv, RayRLlib
+from skdecide.hub.solver.ray_rllib.action_masking.rl_modules.dqn import (
+    ActionMaskingDQNTorchRLModule,
+)
+from skdecide.hub.solver.ray_rllib.ray_rllib import (
+    SK_DEFAULT_MODULE_ID,
+    AsRLlibMultiAgentEnv,
+    RayRLlib,
+)
 from skdecide.hub.space.gym import EnumSpace, MultiDiscreteSpace, SetSpace
 from skdecide.utils import load_registered_solver, rollout
 
@@ -368,7 +379,16 @@ def test_ray_rllib_solver(ray_init):
         )
 
 
-def test_ray_rllib_solver_with_filtered_actions(ray_init):
+@parametrize(
+    "algo_class, config_factory, expected_rl_module_cls",
+    [
+        (PPO, ppo_config_factory, ActionMaskingPPOTorchRLModule),
+        (DQN, dqn_config_factory, ActionMaskingDQNTorchRLModule),
+    ],
+)
+def test_ray_rllib_solver_with_filtered_actions(
+    ray_init, algo_class, config_factory, expected_rl_module_cls
+):
     # define domain
     domain_factory = lambda: GridWorldFilteredActions()
     domain = domain_factory()
@@ -377,13 +397,14 @@ def test_ray_rllib_solver_with_filtered_actions(ray_init):
     assert RayRLlib.check_domain(domain)
 
     # define and solve
-    # solver_kwargs = dict(algo_class=DQN, train_iterations=1)
-    # config = dqn_config_factory()
-    solver_kwargs = dict(algo_class=PPO, train_iterations=1)
-    config = ppo_config_factory()
+    solver_kwargs = dict(algo_class=algo_class, train_iterations=1)
+    config = config_factory()
     solver = RayRLlib(domain_factory=domain_factory, config=config, **solver_kwargs)
     solver.solve()
     assert hasattr(solver, "_algo")
+    assert isinstance(
+        solver._algo.get_module(SK_DEFAULT_MODULE_ID), expected_rl_module_cls
+    )
 
     # rollout
     rollout(domain, solver, max_steps=100)
@@ -429,12 +450,6 @@ class MyModule(ActionMaskingRLModule, DefaultDQNTorchRLModule):
         self,
         batch: dict[str, TensorType],
         action_mask: TensorType,
-        logits_columns: tuple[str, ...] = (
-            QF_PREDS,
-            QF_LOGITS,
-            Columns.ACTION_DIST_INPUTS,
-        ),
-        probs_columns: tuple(str, ...) = (QF_PROBS,),
     ) -> dict[str, TensorType]:
         """Masks the action logits for the output of `forward` methods
 
@@ -509,11 +524,11 @@ class MyModule(ActionMaskingRLModule, DefaultDQNTorchRLModule):
         # # to the batch to access them in `_forward_train`.
         # batch["action_mask"] = action_mask
         outs = super()._qf_forward_helper(batch, encoder, head)
-        return self._mask_action_logits(outs, action_mask, logits_columns=QF_PREDS)
+        return self._mask_action_logits(outs, action_mask)
 
     def _forward_exploration(
-        self, batch: Dict[str, TensorType], t: int
-    ) -> Dict[str, TensorType]:
+        self, batch: dict[str, TensorType], t: int
+    ) -> dict[str, TensorType]:
         """Forward pass during exploration.
 
         We need to override as a multinomial on Q-values is taken, originally excluding *0* valued logits.
