@@ -9,9 +9,13 @@ import pytest
 import ray
 from pytest_cases import fixture
 from ray.rllib.algorithms import PPO
+from ray.rllib.algorithms.ppo.torch.default_ppo_torch_rl_module import (
+    DefaultPPOTorchRLModule,
+)
 
 from skdecide.hub.solver.ray_rllib import RayRLlib
 from skdecide.hub.solver.ray_rllib.gnn.algorithms import GraphPPO
+from skdecide.hub.solver.ray_rllib.gnn.models.torch.encoder import TorchGnnEncoder
 from skdecide.utils import rollout
 
 
@@ -40,14 +44,33 @@ def graphppo_config():
     )
 
 
-def test_ppo(unmasked_graph_domain_factory, graphppo_config, ray_init):
+@fixture
+def ppo_config():
+    return (
+        PPO.get_default_config()
+        .env_runners(
+            # set num of CPU<1 to avoid hanging for ever in github actions on macos 11)
+            num_cpus_per_env_runner=0.5
+        )
+        # small number to increase speed of the unit test
+        .training(minibatch_size=32)
+        # uncomment next line to run in local mode and debug more easily
+        .env_runners(num_env_runners=0)
+        .learners(num_learners=0)
+    )
+
+
+def test_ppo(unmasked_graph_domain_factory, ppo_config, ray_init):
     domain_factory = unmasked_graph_domain_factory
     solver_kwargs = dict(algo_class=PPO, train_iterations=1)
     with RayRLlib(
-        domain_factory=domain_factory, config=graphppo_config, **solver_kwargs
+        domain_factory=domain_factory, config=ppo_config, **solver_kwargs
     ) as solver:
         assert not solver._action_masking and solver._is_graph_obs
         solver.solve()
+        rl_module = solver.get_policy()
+        assert isinstance(rl_module, DefaultPPOTorchRLModule)
+        assert isinstance(rl_module.encoder, TorchGnnEncoder)
         rollout(
             domain=domain_factory(),
             solver=solver,

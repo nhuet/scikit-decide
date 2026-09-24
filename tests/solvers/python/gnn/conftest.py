@@ -540,9 +540,6 @@ def graph_maze_domain_factory(discrete_features):
     return lambda: GraphMaze(discrete_features=discrete_features)
 
 
-discrete_features = param_fixture("discrete_features", [False, True])
-
-
 @fixture
 def unmasked_graph_maze_domain_factory(discrete_features):
     return lambda: UnmaskedGraphMaze(discrete_features=discrete_features)

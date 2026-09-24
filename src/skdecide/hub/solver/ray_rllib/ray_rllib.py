@@ -24,8 +24,9 @@ from ray.rllib.connectors.common import (
     AddObservationsFromEpisodesToBatch,
     AgentToModuleMapping,
 )
+from ray.rllib.connectors.common.flatten_observations import FlattenObservations
 from ray.rllib.connectors.connector_v2 import ConnectorV2
-from ray.rllib.connectors.env_to_module import FlattenObservations
+from ray.rllib.connectors.learner import AddColumnsFromEpisodesToTrainBatch
 from ray.rllib.core.rl_module import (
     MultiRLModule,
     MultiRLModuleSpec,
@@ -61,6 +62,9 @@ from skdecide.hub.solver.ray_rllib.action_masking.utils.spaces.space_utils impor
     create_agent_action_mask_space,
 )
 from skdecide.hub.solver.ray_rllib.gnn.algorithms.ppo.ppo_catalog import GraphPPOCatalog
+from skdecide.hub.solver.ray_rllib.gnn.connectors.graph_instance_to_batch_data import (
+    GraphNumpyToTensor,
+)
 from skdecide.hub.solver.ray_rllib.gnn.utils.monkey_patch import (
     unmonkey_patch_rllib_for_graph,
 )
@@ -147,6 +151,12 @@ class RayRLlib(Solver, Policies, Restorable):
         env_to_module_connector: Optional[
             Callable[[AsRLlibMultiAgentEnv, Any, Any], ConnectorV2 | list[ConnectorV2]]
         ] = None,
+        learner_connector: Optional[
+            Callable[
+                [gym.spaces.Space, gym.spaces.Space, Any],
+                ConnectorV2 | list[ConnectorV2],
+            ]
+        ] = None,
         callback: Optional[Callable[[RayRLlib], bool]] = None,
         graph_feature_extractors_kwargs: Optional[dict[str, Any]] = None,
         graph_node_action: bool = False,
@@ -171,8 +181,10 @@ class RayRLlib(Solver, Policies, Restorable):
             The user managed itself the multiagent RL module to be used.
             The keys of `rl_module_spec.rl_module_specs` should correspond to the values of `agent2module_id`.
         env_to_module_connector: env-to-module-connector pipeline preprocessing (gym) observations to be feed to the rl module.
-            Default to flatten everything (e.g. discrete observations are one-hot encoded, dict/list/tuple spaces are concatenated, ...)
-            by using `ray.rllib.connectors.common.flatten_observations.FlattenObservations`.
+            Default to flatten everything except graphs (e.g. discrete observations are one-hot encoded, dict/list/tuple spaces are concatenated, ...)
+            and transform graph instances into batched torch-geometric data.
+        learner_connector: learner-connector pipeline preprocessing (gym) observations to be feed to the rl module.
+            Default to transforming graph instances into batched torch-geometric data.
         callback: function called at each solver iteration.
             If returning true, the solve process stops and exit the current train iteration.
             However, if train_iterations > 1, another train loop will be entered after that.
@@ -188,9 +200,8 @@ class RayRLlib(Solver, Policies, Restorable):
         #### Masking
 
         If the domain has not the `UnrestrictedActions` mixin, and if the algo used allows action masking
-        (e.g. APPO, BC, DQN, Rainbow, IMPALA, MARWIL, PPO), the observations are automatically wrapped to also present
-        the action mask to the algorithm, which will used via a custom model
-        (defined in `skdecide.hub.solver.ray_rllib.action_masking.models`).
+        (PPO or DQN), the observations are automatically wrapped to also present
+        the action mask to the algorithm, which will used via a custom rl-module.
         During training, a gymnasium environment is created wrapping a domain instantiated from `domain_factory` and
         used during training rollouts to get the observation with the appropriate action mask.
         At inference, we use the method `self.get_action_mask()` which provides the proper action mask provided that
@@ -200,10 +211,10 @@ class RayRLlib(Solver, Policies, Restorable):
         #### Graph observations
 
         If the observation space wrapped gymnasium space for each agent is a `gymnasium.spaces.Graph` or a `gymnasium.spaces.Dict`
-        whose subspaces contain a `gymnasium.spaces.Graph`, the solver will use custom models adapted to graphs for its policy, using GNNs.
+        whose subspaces contain a `gymnasium.spaces.Graph`, the solver will use a custom encoder using GNNs.
 
         - If `graph_node_action` is False (default), a GNN will be used to extract (a fixed number of) features from graphs,
-          and then classical MLPs will be use for predicting action and value.
+          and then classical MLPs will be used for predicting action and value.
           See `skdecide.hub.solver.utils.gnn.torch_layers.GraphFeaturesExtractor` for more details
           and use `graph_feature_extractors_kwargs` to customize it.
         - If `graph_node_action` is True, this means that an agent action is defined by the choice of node in the observation graph.
@@ -243,6 +254,7 @@ class RayRLlib(Solver, Policies, Restorable):
         else:
             self._module_classes = module_classes
         self._env_to_module_connector = env_to_module_connector
+        self._learner_connector = learner_connector
         self._rl_module_spec = rl_module_spec
         if graph_feature_extractors_kwargs is None:
             self._graph_feature_extractors_kwargs = {}
@@ -536,7 +548,24 @@ class RayRLlib(Solver, Policies, Restorable):
 
         # connector preprocessing observations for rl_module  (e.g. flatten observations)
         if self._env_to_module_connector is None:
-            if not (self._is_graph_obs or self._is_graph_multiinput_obs):
+            if self._is_graph_obs:
+                env_to_module_connector = lambda env, spaces, device: [
+                    # default connectors except for last 2 (batch and tensor conversion
+                    AddObservationsFromEpisodesToBatch(as_learner_connector=False),
+                    AgentToModuleMapping(
+                        rl_module_specs=self._config.rl_module_spec.rl_module_specs,
+                        agent_to_module_mapping_fn=self._config.policy_mapping_fn,
+                    ),
+                    GraphNumpyToTensor(device=device),
+                ]
+                add_default_connectors_to_env_to_module_pipeline = False
+            elif self._is_graph_multiinput_obs:
+                env_to_module_connector = None
+                add_default_connectors_to_env_to_module_pipeline = False
+                raise NotImplementedError()
+            else:
+                add_default_connectors_to_env_to_module_pipeline = True
+                # Flattening observations to be passed to standard RL modules
                 if self._action_masking:
                     env_to_module_connector = (
                         lambda env,
@@ -549,22 +578,65 @@ class RayRLlib(Solver, Policies, Restorable):
                             multi_agent=True
                         )
                     )
-            elif self._is_graph_obs:
-                env_to_module_connector = lambda env, spaces, device: [
+
+        else:
+            env_to_module_connector = self._env_to_module_connector
+            add_default_connectors_to_env_to_module_pipeline = (
+                self._config.add_default_connectors_to_env_to_module_pipeline
+            )
+
+        self._config.env_runners(
+            env_to_module_connector=env_to_module_connector,
+            add_default_connectors_to_env_to_module_pipeline=add_default_connectors_to_env_to_module_pipeline,
+        )
+
+        if self._learner_connector is None:
+            if self._is_graph_obs:
+                learner_connector = lambda obs_space, action_space, device=None: [
                     # default connectors except for last 2 (batch and tensor conversion
-                    AddObservationsFromEpisodesToBatch(),
+                    AddObservationsFromEpisodesToBatch(as_learner_connector=True),
+                    AddColumnsFromEpisodesToTrainBatch(),
                     AgentToModuleMapping(
                         rl_module_specs=self._config.rl_module_spec.rl_module_specs,
                         agent_to_module_mapping_fn=self._config.policy_mapping_fn,
                     ),
-                    GraphInstanceToBatchData(),
+                    GraphNumpyToTensor(device=device),
                 ]
+                add_default_connectors_to_learner_pipeline = False
+            elif self._is_graph_multiinput_obs:
+                learner_connector = None
+                add_default_connectors_to_learner_pipeline = False
+                raise NotImplementedError()
             else:
-                # no flattening to keep a graph for the GNN but transfo to thg.data.Data
-                env_to_module_connector = None
+                add_default_connectors_to_learner_pipeline = True
+                learner_connector = None
+                # # Flattening observations to be passed to standard RL modules
+                # if self._action_masking:
+                #     learner_connector = (
+                #         lambda env,
+                #                spaces,
+                #                device: FlattenMultiagentMaskedObservations(
+                #             as_learner_connector=True,
+                #         )
+                #     )
+                # else:
+                #     env_to_module_connector = (
+                #         lambda env, spaces, device: FlattenObservations(
+                #             multi_agent=True,
+                #             as_learner_connector=True,
+                #         )
+                #     )
+
         else:
-            env_to_module_connector = self._env_to_module_connector
-        self._config.env_runners(env_to_module_connector=env_to_module_connector)
+            learner_connector = self._learner_connector
+            add_default_connectors_to_learner_pipeline = (
+                self._config.add_default_connectors_to_learner_pipeline
+            )
+
+        self._config.learners(
+            add_default_connectors_to_learner_pipeline=add_default_connectors_to_learner_pipeline,
+            learner_connector=learner_connector,
+        )
 
         # gym env wrapper for env runners
         register_env(
