@@ -70,6 +70,7 @@ from skdecide.hub.solver.ray_rllib.gnn.utils.monkey_patch import (
     unmonkey_patch_rllib_for_graph,
 )
 from skdecide.hub.solver.ray_rllib.gnn.utils.spaces.space_utils import (
+    convert_graph_space_to_dict_space,
     convert_graph_to_dict,
 )
 from skdecide.hub.solver.ray_rllib.utils import compute_action_new_api_stack_multi_agent
@@ -904,20 +905,19 @@ def _unwrap_agent_obs_space(
     agent: str,
 ) -> gym.Space:
     unwrapped_agent_obs_space = wrapped_observation_space[agent].unwrapped()
-    return unwrapped_agent_obs_space
-    # if isinstance(unwrapped_agent_obs_space, gym.spaces.Graph):
-    #     return convert_graph_space_to_dict_space(unwrapped_agent_obs_space)
-    # elif _is_graph_multiinput_unwrapped_agent_space(unwrapped_agent_obs_space):
-    #     return gym.spaces.Dict(
-    #         {
-    #             k: convert_graph_space_to_dict_space(subspace)
-    #             if isinstance(subspace, gym.spaces.Graph)
-    #             else subspace
-    #             for k, subspace in unwrapped_agent_obs_space.spaces.items()
-    #         }
-    #     )
-    # else:
-    #     return unwrapped_agent_obs_space
+    if isinstance(unwrapped_agent_obs_space, gym.spaces.Graph):
+        return convert_graph_space_to_dict_space(unwrapped_agent_obs_space)
+    elif _is_graph_multiinput_unwrapped_agent_space(unwrapped_agent_obs_space):
+        return gym.spaces.Dict(
+            {
+                k: convert_graph_space_to_dict_space(subspace)
+                if isinstance(subspace, gym.spaces.Graph)
+                else subspace
+                for k, subspace in unwrapped_agent_obs_space.spaces.items()
+            }
+        )
+    else:
+        return unwrapped_agent_obs_space
 
 
 def _create_agent_obs_space_for_rllib(
@@ -979,8 +979,7 @@ def _unwrap_agent_obs(
     obs: dict[str, D.T_observation],
     agent: str,
     wrapped_observation_space: dict[str, GymSpace[D.T_observation]],
-    # transform_graph: bool = True,
-    transform_graph: bool = False,
+    transform_graph: bool = True,
 ) -> Any:
     unwrapped_agent_obs_space = wrapped_observation_space[agent].unwrapped()
     if isinstance(unwrapped_agent_obs_space, gym.spaces.Graph) and transform_graph:
