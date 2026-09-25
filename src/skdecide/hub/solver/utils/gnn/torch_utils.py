@@ -1,3 +1,4 @@
+from math import prod
 from typing import Optional, Union
 
 import gymnasium as gym
@@ -31,7 +32,7 @@ def torch_graph_tensors_to_thg_data(
     if edges is None:
         edge_attr = None
     else:
-        edge_attr = edges.reshape((len(edges), -1)).float()
+        edge_attr = edges.reshape((len(edges), int(prod(edges.shape[1:])))).float()
     edge_index = edge_links.long().t().contiguous().view(2, -1)
     data = thg.data.Data(x=x, edge_index=edge_index, edge_attr=edge_attr)
 

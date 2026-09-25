@@ -1,8 +1,16 @@
+from __future__ import annotations
+
 from typing import Any, Union
 
 import gymnasium as gym
 import numpy as np
 from ray.rllib.utils.spaces.repeated import Repeated
+
+from skdecide.hub.solver.ray_rllib.action_masking.utils.spaces.space_utils import (
+    ACTION_MASK,
+    TRUE_OBS,
+    is_masked_obs,
+)
 
 NODES = "nodes"
 EDGES = "edges"
@@ -111,7 +119,10 @@ def pad_graph(
 
 
 def pad_batched_graph_dict(
-    x: dict[str, np.ndarray], max_n_nodes: int, max_n_edges: int
+    x: dict[str, np.ndarray],
+    max_n_nodes: int,
+    max_n_edges: int,
+    batch_dim_included: bool = False,
 ) -> dict[str, np.ndarray]:
     nodes, edges, edge_links = x[NODES], x[EDGES], x[EDGE_LINKS]
     assert (
@@ -205,3 +216,118 @@ def is_graph_dict_multiinput_space(space: gym.spaces.Space) -> bool:
     return isinstance(space, gym.spaces.Dict) and any(
         [is_graph_dict_space(subspace) for subspace in space.values()]
     )
+
+
+def original_batch(
+    list_of_structs: list[Any],
+    *,
+    individual_items_already_have_batch_dim: bool | str = False,
+) -> Any:
+    """Function placeholder to be used to store the original `batch()` code"""
+    ...
+
+
+def prepare_for_batch_graph(
+    list_of_structs: list[Any],
+    individual_items_already_have_batch_dim: bool | str = False,
+) -> None:
+    if len(list_of_structs) > 0:
+        pad_sample_batches_obs(
+            list_of_structs,
+            keys=tuple(),
+            batch_dim_included=individual_items_already_have_batch_dim,
+        )
+
+
+def batch_graph(
+    list_of_structs: list[Any],
+    *,
+    individual_items_already_have_batch_dim: bool | str = False,
+) -> Any:
+    """Enhance `ray.rllib.utils.spaces.space_utils.batch` to manage graphs."""
+    prepare_for_batch_graph(
+        list_of_structs,
+        individual_items_already_have_batch_dim=individual_items_already_have_batch_dim,
+    )
+    original_batch(
+        list_of_structs=list_of_structs,
+        individual_items_already_have_batch_dim=individual_items_already_have_batch_dim,
+    )
+
+
+def get_item(s: dict[str, Any], keys: tuple[str, ...]) -> Any:
+    if len(keys) == 0:
+        return s
+    else:
+        return get_item(s[keys[0]], keys[1:])
+
+
+def set_item(s: dict[str, Any], keys: tuple[str, ...], value: Any) -> None:
+    if len(keys) == 0:
+        raise ValueError("keys must of len >=1")
+    elif len(keys) == 1:
+        s[keys[0]] = value
+    else:
+        set_item(s[keys[0]], keys=keys[1:], value=value)
+
+
+def pad_sample_batches_obs(
+    samples: list[dict[str, Any]],
+    keys: tuple[str, ...],
+    batch_dim_included: bool = False,
+) -> None:
+    first_subobs = get_item(samples[0], keys)
+    node_edge_id_dim = 1 if batch_dim_included else 0
+    if is_graph_dict(first_subobs):
+        if (
+            len(set(get_item(s, keys)[NODES].shape[node_edge_id_dim] for s in samples))
+            > 1
+            or len(
+                set(get_item(s, keys)[EDGES].shape[node_edge_id_dim] for s in samples)
+            )
+            > 1
+        ):
+            # different number of nodes or edges => padding
+            max_n_nodes = max(
+                get_item(s, keys)[NODES].shape[node_edge_id_dim] for s in samples
+            )
+            max_n_edges = max(
+                get_item(s, keys)[EDGES].shape[node_edge_id_dim] for s in samples
+            )
+            for s in samples:
+                set_item(
+                    s,
+                    keys=keys,
+                    value=pad_batched_graph_dict(
+                        get_item(s, keys),
+                        max_n_nodes=max_n_nodes,
+                        max_n_edges=max_n_edges,
+                        batch_dim_included=batch_dim_included,
+                    ),
+                )
+    elif is_masked_obs(first_subobs):
+        # pad "true_obs" part
+        pad_sample_batches_obs(samples=samples, keys=keys + (TRUE_OBS,))
+        # pad action mask
+        pad_sample_batches_action_mask(samples=samples, keys=keys + (ACTION_MASK,))
+    elif is_graph_dict_multiinput(first_subobs):
+        # pad each subobs (that are graphs)
+        for subkey in first_subobs:
+            pad_sample_batches_obs(samples=samples, keys=keys + (subkey,))
+    else:
+        # not a graph => nothing to pad
+        ...
+
+
+def pad_sample_batches_action_mask(
+    samples: list[dict[str, Any]], keys: tuple[str, ...]
+) -> None:
+    if len(set(get_item(s, keys).shape[1] for s in samples)) > 1:
+        # different number of nodes => padding
+        max_n_nodes = max(get_item(s, keys).shape[1] for s in samples)
+        for s in samples:
+            set_item(
+                s,
+                keys=keys,
+                value=pad_axis(get_item(s, keys), max_n_nodes, axis=1),
+            )
