@@ -205,9 +205,3 @@ def is_graph_dict_multiinput_space(space: gym.spaces.Space) -> bool:
     return isinstance(space, gym.spaces.Dict) and any(
         [is_graph_dict_space(subspace) for subspace in space.values()]
     )
-
-
-def extract_graph_dict_from_batched_graph_dict(
-    batched_graph_dict: dict[str, np.ndarray], index: int
-) -> dict[str, np.ndarray]:
-    return {k: v[index, :] for k, v in batched_graph_dict.items()}

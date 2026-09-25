@@ -4,6 +4,7 @@ from typing import Optional, Union
 
 import gymnasium as gym
 import numpy as np
+import torch
 import torch_geometric as thg
 from ray.rllib.utils.torch_utils import (
     convert_to_torch_tensor as convert_to_torch_tensor_original,
@@ -15,13 +16,17 @@ from skdecide.hub.solver.ray_rllib.action_masking.utils.spaces.space_utils impor
     is_masked_obs,
 )
 from skdecide.hub.solver.ray_rllib.gnn.utils.spaces.space_utils import (
+    EDGE_LINKS,
+    EDGES,
     NODES,
     convert_dict_to_graph,
-    extract_graph_dict_from_batched_graph_dict,
     is_graph_dict,
     is_graph_dict_multiinput,
 )
-from skdecide.hub.solver.utils.gnn.torch_utils import graph_instance_to_thg_data
+from skdecide.hub.solver.utils.gnn.torch_utils import (
+    graph_instance_to_thg_data,
+    torch_graph_tensors_to_thg_data,
+)
 
 
 def convert_to_torch_tensor(
@@ -111,15 +116,44 @@ def batched_graph_dict_to_thg_data(
         [
             graph_instance_to_thg_data(
                 graph=convert_dict_to_graph(
-                    extract_graph_dict_from_batched_graph_dict(
-                        batched_graph_dict=batched_graph_dict, index=index
-                    )
+                    {k: v[index, :] for k, v in batched_graph_dict.items()}
                 ),
                 device=device,
                 pin_memory=pin_memory,
             )
             for index in range(batch_size)
         ]
+    )
+
+
+def batched_torch_graph_dict_to_thg_data(
+    batched_graph_dict: dict[str, torch.Tensor],
+    device: Optional[str] = None,
+    pin_memory: bool = False,
+) -> thg.data.Data:
+    return thg.data.Batch.from_data_list(
+        [
+            torch_graph_dict_to_thg_data(
+                {k: v[index, :] for k, v in batched_graph_dict.items()},
+                device=device,
+                pin_memory=pin_memory,
+            )
+            for index in range(len(batched_graph_dict[NODES]))
+        ]
+    )
+
+
+def torch_graph_dict_to_thg_data(
+    torch_tensor_dict: dict[str, torch.Tensor],
+    device: Optional[str] = None,
+    pin_memory: bool = False,
+) -> thg.data.Data:
+    return torch_graph_tensors_to_thg_data(
+        nodes=torch_tensor_dict[NODES],
+        edges=torch_tensor_dict[EDGES],
+        edge_links=torch_tensor_dict[EDGE_LINKS],
+        device=device,
+        pin_memory=pin_memory,
     )
 
 

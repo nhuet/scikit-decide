@@ -1,7 +1,6 @@
 from typing import Optional, Union
 
 import gymnasium as gym
-import numpy as np
 import torch as th
 import torch_geometric as thg
 from torch.nn.functional import pad
@@ -12,20 +11,30 @@ def graph_instance_to_thg_data(
     device: Optional[th.device] = None,
     pin_memory: bool = False,
 ) -> thg.data.Data:
-    # Node features
-    flatten_node_features = graph.nodes.reshape((len(graph.nodes), -1))
-    x = th.tensor(flatten_node_features).float()
-    # Edge features
-    if graph.edges is None:
+    return torch_graph_tensors_to_thg_data(
+        nodes=th.tensor(graph.nodes, dtype=th.float),
+        edges=th.tensor(graph.edges, dtype=th.float),
+        edge_links=th.tensor(graph.edge_links, dtype=th.long),
+        device=device,
+        pin_memory=pin_memory,
+    )
+
+
+def torch_graph_tensors_to_thg_data(
+    nodes: th.Tensor,
+    edges: th.Tensor | None,
+    edge_links: th.Tensor,
+    device: Optional[th.device] = None,
+    pin_memory: bool = False,
+) -> thg.data.Data:
+    x = nodes.reshape((len(nodes), -1)).float()
+    if edges is None:
         edge_attr = None
     else:
-        flatten_edge_features = graph.edges.reshape(
-            (len(graph.edges), int(np.prod(graph.edges.shape[1:])))
-        )
-        edge_attr = th.tensor(flatten_edge_features).float()
-    edge_index = th.tensor(graph.edge_links, dtype=th.long).t().contiguous().view(2, -1)
-    # thg.Data
+        edge_attr = edges.reshape((len(edges), -1)).float()
+    edge_index = edge_links.long().t().contiguous().view(2, -1)
     data = thg.data.Data(x=x, edge_index=edge_index, edge_attr=edge_attr)
+
     # Pin the tensor's memory (for faster transfer to GPU later).
     if pin_memory and th.cuda.is_available():
         data.pin_memory()

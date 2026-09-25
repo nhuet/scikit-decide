@@ -16,6 +16,7 @@ from ray.rllib.algorithms.ppo.torch.default_ppo_torch_rl_module import (
 from skdecide.hub.solver.ray_rllib import RayRLlib
 from skdecide.hub.solver.ray_rllib.gnn.algorithms import GraphPPO
 from skdecide.hub.solver.ray_rllib.gnn.models.torch.encoder import TorchGnnEncoder
+from skdecide.hub.solver.ray_rllib.ray_rllib import SK_DEFAULT_MODULE_ID
 from skdecide.utils import rollout
 
 
@@ -69,8 +70,9 @@ def test_ppo(unmasked_graph_domain_factory, ppo_config, ray_init):
         assert not solver._action_masking and solver._is_graph_obs
         solver.solve()
         rl_module = solver.get_policy()
-        assert isinstance(rl_module, DefaultPPOTorchRLModule)
-        assert isinstance(rl_module.encoder, TorchGnnEncoder)
+        agent_rl_module = rl_module.get(SK_DEFAULT_MODULE_ID)
+        assert isinstance(agent_rl_module, DefaultPPOTorchRLModule)
+        assert isinstance(agent_rl_module.encoder, TorchGnnEncoder)
         rollout(
             domain=domain_factory(),
             solver=solver,

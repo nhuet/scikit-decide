@@ -7,14 +7,16 @@ from typing import Any
 import gymnasium as gym
 from ray.rllib.core.models.configs import ModelConfig
 
-from skdecide.hub.solver.ray_rllib.gnn.models.torch.encoder import TorchGnnEncoder
+from skdecide.hub.solver.ray_rllib.gnn.models.torch.encoder import (
+    TorchGnnEncoder,
+)
 
 
 @dataclass(kw_only=True)
 class GnnEncoderConfig(ModelConfig):
     """Configuration for GNN encoder."""
 
-    observation_space: gym.spaces.Graph
+    observation_space: gym.spaces.Dict
     features_dim: int = 64
     features_extractor_kwargs: dict[str, Any] = field(
         default_factory=dict,

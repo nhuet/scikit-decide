@@ -5,7 +5,12 @@ import gymnasium as gym
 from ray.rllib.core.models.catalog import Catalog
 from ray.rllib.core.models.configs import ModelConfig
 
-from skdecide.hub.solver.ray_rllib.gnn.models.configs import GnnEncoderConfig
+from skdecide.hub.solver.ray_rllib.gnn.models.configs import (
+    GnnEncoderConfig,
+)
+from skdecide.hub.solver.ray_rllib.gnn.utils.spaces.space_utils import (
+    is_graph_dict_space,
+)
 
 
 class GraphCatalog(Catalog):
@@ -19,7 +24,7 @@ class GraphCatalog(Catalog):
         features_extractor_kwargs = model_config_dict.get(
             "features_extractor_kwargs", {}
         )
-        if isinstance(observation_space, gym.spaces.Graph):
+        if is_graph_dict_space(observation_space):
             return GnnEncoderConfig(
                 observation_space=observation_space,
                 features_extractor_kwargs=features_extractor_kwargs,

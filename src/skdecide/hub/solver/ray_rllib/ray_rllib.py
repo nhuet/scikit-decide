@@ -357,8 +357,8 @@ class RayRLlib(Solver, Policies, Restorable):
 
         # un-monkey patch rllib for graphs
         if self._is_graph_obs or self._is_graph_multiinput_obs:
-            self._algo.env_runner_group.foreach_worker(
-                lambda worker: unmonkey_patch_rllib_for_graph()
+            self._algo.env_runner_group.foreach_env_runner(
+                lambda env_runner: unmonkey_patch_rllib_for_graph()
             )
 
     def _sample_action(
@@ -562,6 +562,8 @@ class RayRLlib(Solver, Policies, Restorable):
                     GraphNumpyToTensor(as_learner_connector=False, device=device),
                 ]
                 add_default_connectors_to_env_to_module_pipeline = False
+                env_to_module_connector = None
+                add_default_connectors_to_env_to_module_pipeline = True
             elif self._is_graph_multiinput_obs:
                 env_to_module_connector = None
                 add_default_connectors_to_env_to_module_pipeline = False
@@ -607,6 +609,8 @@ class RayRLlib(Solver, Policies, Restorable):
                     GraphNumpyToTensor(as_learner_connector=True, device=device),
                 ]
                 add_default_connectors_to_learner_pipeline = False
+                learner_connector = None
+                add_default_connectors_to_learner_pipeline = True
             elif self._is_graph_multiinput_obs:
                 learner_connector = None
                 add_default_connectors_to_learner_pipeline = False
