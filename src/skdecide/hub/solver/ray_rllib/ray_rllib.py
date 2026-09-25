@@ -23,6 +23,7 @@ from ray.rllib.callbacks.callbacks import RLlibCallback
 from ray.rllib.connectors.common import (
     AddObservationsFromEpisodesToBatch,
     AgentToModuleMapping,
+    BatchIndividualItems,
 )
 from ray.rllib.connectors.common.flatten_observations import FlattenObservations
 from ray.rllib.connectors.connector_v2 import ConnectorV2
@@ -62,7 +63,7 @@ from skdecide.hub.solver.ray_rllib.action_masking.utils.spaces.space_utils impor
     create_agent_action_mask_space,
 )
 from skdecide.hub.solver.ray_rllib.gnn.algorithms.ppo.ppo_catalog import GraphPPOCatalog
-from skdecide.hub.solver.ray_rllib.gnn.connectors.graph_instance_to_batch_data import (
+from skdecide.hub.solver.ray_rllib.gnn.connectors.numpy_to_tensor import (
     GraphNumpyToTensor,
 )
 from skdecide.hub.solver.ray_rllib.gnn.utils.monkey_patch import (
@@ -556,7 +557,8 @@ class RayRLlib(Solver, Policies, Restorable):
                         rl_module_specs=self._config.rl_module_spec.rl_module_specs,
                         agent_to_module_mapping_fn=self._config.policy_mapping_fn,
                     ),
-                    GraphNumpyToTensor(device=device),
+                    BatchIndividualItems(multi_agent=True),
+                    GraphNumpyToTensor(as_learner_connector=False, device=device),
                 ]
                 add_default_connectors_to_env_to_module_pipeline = False
             elif self._is_graph_multiinput_obs:
@@ -600,7 +602,8 @@ class RayRLlib(Solver, Policies, Restorable):
                         rl_module_specs=self._config.rl_module_spec.rl_module_specs,
                         agent_to_module_mapping_fn=self._config.policy_mapping_fn,
                     ),
-                    GraphNumpyToTensor(device=device),
+                    BatchIndividualItems(multi_agent=True),
+                    GraphNumpyToTensor(as_learner_connector=True, device=device),
                 ]
                 add_default_connectors_to_learner_pipeline = False
             elif self._is_graph_multiinput_obs:

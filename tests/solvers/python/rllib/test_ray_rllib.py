@@ -46,7 +46,7 @@ from skdecide.builders.domain.events import Actions
 from skdecide.core import autocast_all
 from skdecide.hub.domain.gym import GymDomain
 from skdecide.hub.domain.rock_paper_scissors import RockPaperScissors
-from skdecide.hub.solver.ray_rllib.action_masking.rl_modules.dqn import (
+from skdecide.hub.solver.ray_rllib.action_masking.algorithms.dqn.torch.action_masking_dqn_torch_rl_module import (
     ActionMaskingDQNTorchRLModule,
 )
 from skdecide.hub.solver.ray_rllib.ray_rllib import (
@@ -282,13 +282,11 @@ def ppo_config_factory():
             # set num of CPU<1 to avoid hanging for ever in github actions on macos 11)
             num_cpus_per_env_runner=0.5
         )
-        .training(
-            # small batch size => fast (but bad) training
-            minibatch_size=32
-        )
+        # small batch size => fast (but bad) training
+        .training(minibatch_size=16, train_batch_size_per_learner=32)
         # # uncomment next lines to debug in local mode
-        # .env_runners(num_env_runners=0)
-        # .learners(num_learners=0)
+        .env_runners(num_env_runners=0)
+        .learners(num_learners=0)
     )
 
 
@@ -304,8 +302,8 @@ def dqn_config_factory():
             train_batch_size_per_learner=32
         )
         # # uncomment next lines to debug in local mode
-        # .env_runners(num_env_runners=0)
-        # .learners(num_learners=0)
+        .env_runners(num_env_runners=0)
+        .learners(num_learners=0)
     )
 
 

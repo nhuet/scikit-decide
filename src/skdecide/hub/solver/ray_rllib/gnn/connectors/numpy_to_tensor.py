@@ -3,11 +3,12 @@
 #  LICENSE file in the root directory of this source tree.
 from typing import Any, Dict, List, Optional
 
+import gymnasium as gym
 from ray.rllib.connectors.common import NumpyToTensor
 from ray.rllib.core import DEFAULT_MODULE_ID, Columns
 from ray.rllib.core.rl_module import MultiRLModule, RLModule
 from ray.rllib.utils.metrics.metrics_logger import MetricsLogger
-from ray.rllib.utils.typing import EpisodeType
+from ray.rllib.utils.typing import DeviceType, EpisodeType
 
 from skdecide.hub.solver.ray_rllib.gnn.utils.torch_utils import convert_to_torch_tensor
 
@@ -18,6 +19,25 @@ class GraphNumpyToTensor(NumpyToTensor):
     Other numpy arrays are converted to torch tensors via ray.rllib `convert_to_torch_tensor()`.
 
     """
+
+    def __init__(
+        self,
+        input_observation_space: Optional[gym.Space] = None,
+        input_action_space: Optional[gym.Space] = None,
+        *,
+        pin_memory: bool = False,
+        device: Optional[DeviceType] = None,
+        as_learner_connector: bool = False,
+        **kwargs,
+    ):
+        super().__init__(
+            input_observation_space=input_observation_space,
+            input_action_space=input_action_space,
+            pin_memory=pin_memory,
+            device=device,
+            **kwargs,
+        )
+        self._as_learner_connector = as_learner_connector
 
     def __call__(
         self,
@@ -44,7 +64,10 @@ class GraphNumpyToTensor(NumpyToTensor):
                 if rl_module.framework == "torch":
                     module_data = {
                         key: convert_to_torch_tensor(
-                            data, pin_memory=self._pin_memory, device=self._device
+                            data,
+                            pin_memory=self._pin_memory,
+                            device=self._device,
+                            already_batched=True,
                         )
                         for key, data in module_data.items()
                     }
