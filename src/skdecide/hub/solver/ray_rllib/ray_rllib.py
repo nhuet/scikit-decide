@@ -20,14 +20,8 @@ from ray.rllib.algorithms import DQN, PPO, SAC
 from ray.rllib.algorithms.algorithm import Algorithm, AlgorithmConfig
 from ray.rllib.algorithms.callbacks import DefaultCallbacks
 from ray.rllib.callbacks.callbacks import RLlibCallback
-from ray.rllib.connectors.common import (
-    AddObservationsFromEpisodesToBatch,
-    AgentToModuleMapping,
-    BatchIndividualItems,
-)
 from ray.rllib.connectors.common.flatten_observations import FlattenObservations
 from ray.rllib.connectors.connector_v2 import ConnectorV2
-from ray.rllib.connectors.learner import AddColumnsFromEpisodesToTrainBatch
 from ray.rllib.core.rl_module import (
     MultiRLModule,
     MultiRLModuleSpec,
@@ -63,8 +57,8 @@ from skdecide.hub.solver.ray_rllib.action_masking.utils.spaces.space_utils impor
     create_agent_action_mask_space,
 )
 from skdecide.hub.solver.ray_rllib.gnn.algorithms.ppo.ppo_catalog import GraphPPOCatalog
-from skdecide.hub.solver.ray_rllib.gnn.connectors.numpy_to_tensor import (
-    GraphNumpyToTensor,
+from skdecide.hub.solver.ray_rllib.gnn.connectors.flatten_observations import (
+    FlattenMultiagentGraphObservations,
 )
 from skdecide.hub.solver.ray_rllib.gnn.utils.monkey_patch import (
     monkey_patch_rllib_for_graph,
@@ -553,18 +547,9 @@ class RayRLlib(Solver, Policies, Restorable):
         # connector preprocessing observations for rl_module  (e.g. flatten observations)
         if self._env_to_module_connector is None:
             if self._is_graph_obs:
-                env_to_module_connector = lambda env, spaces, device: [
-                    # default connectors except for last 2 (batch and tensor conversion
-                    AddObservationsFromEpisodesToBatch(as_learner_connector=False),
-                    AgentToModuleMapping(
-                        rl_module_specs=self._config.rl_module_spec.rl_module_specs,
-                        agent_to_module_mapping_fn=self._config.policy_mapping_fn,
-                    ),
-                    BatchIndividualItems(multi_agent=True),
-                    GraphNumpyToTensor(as_learner_connector=False, device=device),
-                ]
-                add_default_connectors_to_env_to_module_pipeline = False
-                env_to_module_connector = None
+                env_to_module_connector = (
+                    lambda env, spaces, device: FlattenMultiagentGraphObservations()
+                )
                 add_default_connectors_to_env_to_module_pipeline = True
             elif self._is_graph_multiinput_obs:
                 env_to_module_connector = None
@@ -597,56 +582,28 @@ class RayRLlib(Solver, Policies, Restorable):
             add_default_connectors_to_env_to_module_pipeline=add_default_connectors_to_env_to_module_pipeline,
         )
 
-        if self._learner_connector is None:
-            if self._is_graph_obs:
-                learner_connector = lambda obs_space, action_space, device=None: [
-                    # default connectors except for last 2 (batch and tensor conversion
-                    AddObservationsFromEpisodesToBatch(as_learner_connector=True),
-                    AddColumnsFromEpisodesToTrainBatch(),
-                    AgentToModuleMapping(
-                        rl_module_specs=self._config.rl_module_spec.rl_module_specs,
-                        agent_to_module_mapping_fn=self._config.policy_mapping_fn,
-                    ),
-                    BatchIndividualItems(multi_agent=True),
-                    GraphNumpyToTensor(as_learner_connector=True, device=device),
-                ]
-                add_default_connectors_to_learner_pipeline = False
-                learner_connector = None
-                add_default_connectors_to_learner_pipeline = True
-            elif self._is_graph_multiinput_obs:
-                learner_connector = None
-                add_default_connectors_to_learner_pipeline = False
-                raise NotImplementedError()
-            else:
-                add_default_connectors_to_learner_pipeline = True
-                learner_connector = None
-                # # Flattening observations to be passed to standard RL modules
-                # if self._action_masking:
-                #     learner_connector = (
-                #         lambda env,
-                #                spaces,
-                #                device: FlattenMultiagentMaskedObservations(
-                #             as_learner_connector=True,
-                #         )
-                #     )
-                # else:
-                #     env_to_module_connector = (
-                #         lambda env, spaces, device: FlattenObservations(
-                #             multi_agent=True,
-                #             as_learner_connector=True,
-                #         )
-                #     )
-
-        else:
-            learner_connector = self._learner_connector
-            add_default_connectors_to_learner_pipeline = (
-                self._config.add_default_connectors_to_learner_pipeline
-            )
-
-        self._config.learners(
-            add_default_connectors_to_learner_pipeline=add_default_connectors_to_learner_pipeline,
-            learner_connector=learner_connector,
-        )
+        # if self._learner_connector is None:
+        #     if self._is_graph_obs:
+        #         learner_connector = None
+        #         add_default_connectors_to_learner_pipeline = True
+        #     elif self._is_graph_multiinput_obs:
+        #         learner_connector = None
+        #         add_default_connectors_to_learner_pipeline = False
+        #         raise NotImplementedError()
+        #     else:
+        #         add_default_connectors_to_learner_pipeline = True
+        #         learner_connector = None
+        #
+        # else:
+        #     learner_connector = self._learner_connector
+        #     add_default_connectors_to_learner_pipeline = (
+        #         self._config.add_default_connectors_to_learner_pipeline
+        #     )
+        #
+        # self._config.learners(
+        #     add_default_connectors_to_learner_pipeline=add_default_connectors_to_learner_pipeline,
+        #     learner_connector=learner_connector,
+        # )
 
         # gym env wrapper for env runners
         register_env(
