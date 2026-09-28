@@ -4,7 +4,7 @@ from typing import Optional, Union
 
 import gymnasium as gym
 import numpy as np
-import torch
+import torch as th
 import torch_geometric as thg
 from ray.rllib.utils.torch_utils import (
     convert_to_torch_tensor as convert_to_torch_tensor_original,
@@ -54,39 +54,7 @@ def convert_to_torch_tensor(
         values converted to torch Tensor types. This does not convert possibly
         nested elements that are None because torch has no representation for that.
     """
-    if already_batched:
-        # graph instances have been batched by `ray.rllib.utils.spaces.space_utils.batch()`
-        if isinstance(x, gym.spaces.GraphInstance):
-            x = [
-                gym.spaces.GraphInstance(
-                    nodes=x.nodes[idx], edge_links=x.edge_links[idx], edges=x.edges[idx]
-                )
-                for idx in range(len(x.nodes))
-            ]
-        elif isinstance(x, list) and isinstance(x[0], gym.spaces.GraphInstance):
-            x = [
-                gym.spaces.GraphInstance(
-                    nodes=graph.nodes[idx],
-                    edge_links=graph.edge_links[idx],
-                    edges=graph.edges[idx],
-                )
-                for graph in x
-                for idx in range(len(graph.nodes))
-            ]
-        return convert_to_torch_tensor(
-            x=x, device=device, pin_memory=pin_memory, already_batched=False
-        )
-
-    if isinstance(x, gym.spaces.GraphInstance):
-        return graph_instance_to_thg_data(x, device=device, pin_memory=pin_memory)
-    elif isinstance(x, list) and isinstance(x[0], gym.spaces.GraphInstance):
-        return SliceableBatch.from_data_list(
-            [
-                graph_instance_to_thg_data(graph, device=device, pin_memory=pin_memory)
-                for graph in x
-            ]
-        )
-    elif isinstance(x, thg.data.Data):
+    if isinstance(x, thg.data.Data):
         return x
     elif is_masked_obs(x):
         return {
@@ -127,14 +95,18 @@ def batched_graph_dict_to_thg_data(
 
 
 def batched_torch_graph_dict_to_thg_data(
-    batched_graph_dict: dict[str, torch.Tensor],
+    batched_graph_dict: dict[str, th.Tensor],
     device: Optional[str] = None,
     pin_memory: bool = False,
 ) -> thg.data.Data:
     return thg.data.Batch.from_data_list(
         [
-            torch_graph_dict_to_thg_data(
-                {k: v[index, :] for k, v in batched_graph_dict.items()},
+            torch_graph_tensors_to_thg_data(
+                *unpad_torch_graph_tensors(
+                    nodes=batched_graph_dict[NODES][index, :],
+                    edges=batched_graph_dict[EDGES][index, :],
+                    edge_links=batched_graph_dict[EDGE_LINKS][index, :],
+                ),
                 device=device,
                 pin_memory=pin_memory,
             )
@@ -144,17 +116,38 @@ def batched_torch_graph_dict_to_thg_data(
 
 
 def torch_graph_dict_to_thg_data(
-    torch_tensor_dict: dict[str, torch.Tensor],
+    torch_graph_dict: dict[str, th.Tensor],
     device: Optional[str] = None,
     pin_memory: bool = False,
 ) -> thg.data.Data:
     return torch_graph_tensors_to_thg_data(
-        nodes=torch_tensor_dict[NODES],
-        edges=torch_tensor_dict[EDGES],
-        edge_links=torch_tensor_dict[EDGE_LINKS],
+        nodes=torch_graph_dict[NODES],
+        edges=torch_graph_dict[EDGES],
+        edge_links=torch_graph_dict[EDGE_LINKS],
         device=device,
         pin_memory=pin_memory,
     )
+
+
+def unpad_torch_graph_tensors(
+    nodes: th.Tensor,
+    edges: th.Tensor | None,
+    edge_links: th.Tensor,
+) -> tuple[th.Tensor, th.Tensor | None, th.Tensor]:
+    # was padded?
+    if (
+        len(edge_links) > 0 and edge_links[-1, 1] < 0
+    ):  # represents -n_nodes when padding
+        # get actual number of nodes and edges
+        n_nodes = -int(edge_links[-1, 1])
+        n_edges = sum((edge_links >= 0).all(axis=1))
+        # extract true nodes, edges, edge_links
+        nodes = nodes[:n_nodes]
+        if edges is not None:
+            edges = edges[:n_edges]
+        edge_links = edge_links[:n_edges]
+
+    return (nodes, edges, edge_links)
 
 
 class SliceableBatch(thg.data.Batch):

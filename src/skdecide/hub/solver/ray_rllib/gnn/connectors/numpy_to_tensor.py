@@ -27,7 +27,6 @@ class GraphNumpyToTensor(NumpyToTensor):
         *,
         pin_memory: bool = False,
         device: Optional[DeviceType] = None,
-        as_learner_connector: bool = False,
         **kwargs,
     ):
         super().__init__(
@@ -37,7 +36,6 @@ class GraphNumpyToTensor(NumpyToTensor):
             device=device,
             **kwargs,
         )
-        self._as_learner_connector = as_learner_connector
 
     def __call__(
         self,

@@ -4,12 +4,17 @@ from typing import Any, Union
 
 import gymnasium as gym
 import numpy as np
+import tree
 from ray.rllib.utils.spaces.repeated import Repeated
+from ray.rllib.utils.spaces.space_utils import BatchedNdArray
 
 from skdecide.hub.solver.ray_rllib.action_masking.utils.spaces.space_utils import (
     ACTION_MASK,
     TRUE_OBS,
     is_masked_obs,
+)
+from skdecide.hub.solver.ray_rllib.gnn.utils.spaces.batch_original_code import (
+    original_batch,
 )
 
 NODES = "nodes"
@@ -119,46 +124,67 @@ def pad_graph(
 
 
 def pad_batched_graph_dict(
-    x: dict[str, np.ndarray],
+    sample: dict[str, np.ndarray],
     max_n_nodes: int,
     max_n_edges: int,
-    batch_dim_included: bool = False,
-) -> dict[str, np.ndarray]:
+    keys: tuple[str, ...] | None = None,
+    has_batch_dim: bool = True,
+) -> None:
+    """Pad inplace graph dicts to same number of nodes and edges.
+
+    Encode actual number of nodes in edge links.
+
+    """
+    if keys is None:
+        keys = tuple()
+    node_edge_id_dim = 1 if has_batch_dim else 0
+    x = get_item(sample, keys)
     nodes, edges, edge_links = x[NODES], x[EDGES], x[EDGE_LINKS]
-    assert (
-        isinstance(edge_links, np.ndarray) and len(edge_links.shape) == 3
+    assert isinstance(edge_links, np.ndarray) and len(edge_links.shape) == (
+        int(has_batch_dim) + 2
     )  # batch, nb_edges, edge_nodes
 
     # edge links: padding with -1 (easy to recognize fake edges) + last edge encoding actual node numbers
     if (edge_links < 0).any():
         # already padded => keep last fake edge at last position (encoding node number)
-        assert edge_links.shape[1] == edges.shape[1] + 1
-        encoding_n_nodes_edge_links = edge_links[:, None, -1, :]  # keep all dimensions
-        edge_links = edge_links[:, :-1, :]  # drop last edge
+        assert edge_links.shape[node_edge_id_dim] == edges.shape[node_edge_id_dim] + 1
+        if has_batch_dim:
+            encoding_n_nodes_edge_links = edge_links[
+                :, None, -1, :
+            ]  # keep all dimensions
+            edge_links = edge_links[:, :-1, :]  # drop last edge
+        else:
+            encoding_n_nodes_edge_links = edge_links[None, -1, :]  # keep all dimensions
+            edge_links = edge_links[:-1, :]  # drop last edge
     else:
         # not padded => all graphs have same number of nodes (and edges)
-        assert edge_links.shape[1] == edges.shape[1]
-        actual_n_nodes = nodes.shape[1]
-        encoding_n_nodes_edge_links = np.zeros((edge_links.shape[0], 1, 2), dtype=int)
-        encoding_n_nodes_edge_links[:, :, -1] = -actual_n_nodes
+        assert edge_links.shape[node_edge_id_dim] == edges.shape[node_edge_id_dim]
+        actual_n_nodes = nodes.shape[node_edge_id_dim]
+        if has_batch_dim:
+            encoding_n_nodes_edge_links = np.zeros(
+                (edge_links.shape[0], 1, 2), dtype=int
+            )
+            encoding_n_nodes_edge_links[:, :, -1] = -actual_n_nodes
+        else:
+            encoding_n_nodes_edge_links = np.zeros((1, 2), dtype=int)
+            encoding_n_nodes_edge_links[:, -1] = -actual_n_nodes
 
     edge_links = np.concatenate(
         (
-            pad_axis(edge_links, max_n_edges, value=-1, axis=1),
+            pad_axis(edge_links, max_n_edges, value=-1, axis=node_edge_id_dim),
             encoding_n_nodes_edge_links,
         ),
-        axis=1,
+        axis=node_edge_id_dim,
     )
 
-    # nodes and edges: pad with 0 second axis (first axis = batch)
-    nodes = pad_axis(nodes, max_n_nodes, axis=1)
-    edges = pad_axis(edges, max_n_edges, axis=1)
+    # nodes and edges: pad with 0
+    nodes = pad_axis(nodes, max_n_nodes, axis=node_edge_id_dim)
+    edges = pad_axis(edges, max_n_edges, axis=node_edge_id_dim)
 
-    return dict(
-        nodes=nodes,
-        edges=edges,
-        edge_links=edge_links,
-    )
+    # set new padded nodes, edges and edge_links
+    x[NODES] = nodes
+    x[EDGES] = edges
+    x[EDGE_LINKS] = edge_links
 
 
 def convert_dict_space_to_graph_space(space: gym.spaces.Dict) -> gym.spaces.Graph:
@@ -218,25 +244,44 @@ def is_graph_dict_multiinput_space(space: gym.spaces.Space) -> bool:
     )
 
 
-def original_batch(
-    list_of_structs: list[Any],
-    *,
-    individual_items_already_have_batch_dim: bool | str = False,
-) -> Any:
-    """Function placeholder to be used to store the original `batch()` code"""
-    ...
+def unbatch_graph_dict(): ...
 
 
 def prepare_for_batch_graph(
     list_of_structs: list[Any],
     individual_items_already_have_batch_dim: bool | str = False,
 ) -> None:
+    individual_items_already_have_batch_dim = guess_if_individual_items_already_have_batch_dim(
+        list_of_structs,
+        individual_items_already_have_batch_dim=individual_items_already_have_batch_dim,
+    )
     if len(list_of_structs) > 0:
         pad_sample_batches_obs(
             list_of_structs,
             keys=tuple(),
-            batch_dim_included=individual_items_already_have_batch_dim,
+            has_batch_dim=individual_items_already_have_batch_dim,
         )
+
+
+def guess_if_individual_items_already_have_batch_dim(
+    list_of_structs: list[Any],
+    individual_items_already_have_batch_dim: bool | str = False,
+) -> bool:
+    if individual_items_already_have_batch_dim == "auto":
+        first = list_of_structs[0]
+        # Nested structures (dict/tuple) require tree traversal; leaves do not.
+        is_nested = isinstance(first, (dict, tuple))
+        if isinstance(first, BatchedNdArray):
+            individual_items_already_have_batch_dim = True
+        elif is_nested:
+            flat = tree.flatten(first)
+            individual_items_already_have_batch_dim = isinstance(
+                flat[0], BatchedNdArray
+            )
+        else:
+            individual_items_already_have_batch_dim = False
+
+    return bool(individual_items_already_have_batch_dim)
 
 
 def batch_graph(
@@ -249,7 +294,7 @@ def batch_graph(
         list_of_structs,
         individual_items_already_have_batch_dim=individual_items_already_have_batch_dim,
     )
-    original_batch(
+    return original_batch(
         list_of_structs=list_of_structs,
         individual_items_already_have_batch_dim=individual_items_already_have_batch_dim,
     )
@@ -272,62 +317,60 @@ def set_item(s: dict[str, Any], keys: tuple[str, ...], value: Any) -> None:
 
 
 def pad_sample_batches_obs(
-    samples: list[dict[str, Any]],
-    keys: tuple[str, ...],
-    batch_dim_included: bool = False,
+    samples: list[Any], keys: tuple[str, ...], has_batch_dim: bool = True
 ) -> None:
+    node_edge_id_dim = 1 if has_batch_dim else 0
     first_subobs = get_item(samples[0], keys)
-    node_edge_id_dim = 1 if batch_dim_included else 0
     if is_graph_dict(first_subobs):
-        if (
-            len(set(get_item(s, keys)[NODES].shape[node_edge_id_dim] for s in samples))
-            > 1
-            or len(
-                set(get_item(s, keys)[EDGES].shape[node_edge_id_dim] for s in samples)
-            )
-            > 1
-        ):
+        graph_dicts = tuple(get_item(s, keys) for s in samples)
+        nb_nodes_per_graph = set(
+            graph_dict[NODES].shape[node_edge_id_dim] for graph_dict in graph_dicts
+        )
+        nb_edges_per_graph = set(
+            graph_dict[EDGES].shape[node_edge_id_dim] for graph_dict in graph_dicts
+        )
+        if len(nb_nodes_per_graph) > 1 or len(nb_edges_per_graph) > 1:
             # different number of nodes or edges => padding
-            max_n_nodes = max(
-                get_item(s, keys)[NODES].shape[node_edge_id_dim] for s in samples
-            )
-            max_n_edges = max(
-                get_item(s, keys)[EDGES].shape[node_edge_id_dim] for s in samples
-            )
+            max_n_nodes = max(nb_nodes_per_graph)
+            max_n_edges = max(nb_edges_per_graph)
             for s in samples:
-                set_item(
+                pad_batched_graph_dict(
                     s,
                     keys=keys,
-                    value=pad_batched_graph_dict(
-                        get_item(s, keys),
-                        max_n_nodes=max_n_nodes,
-                        max_n_edges=max_n_edges,
-                        batch_dim_included=batch_dim_included,
-                    ),
+                    max_n_nodes=max_n_nodes,
+                    max_n_edges=max_n_edges,
+                    has_batch_dim=has_batch_dim,
                 )
     elif is_masked_obs(first_subobs):
         # pad "true_obs" part
-        pad_sample_batches_obs(samples=samples, keys=keys + (TRUE_OBS,))
+        pad_sample_batches_obs(
+            samples=samples, keys=keys + (TRUE_OBS,), has_batch_dim=has_batch_dim
+        )
         # pad action mask
-        pad_sample_batches_action_mask(samples=samples, keys=keys + (ACTION_MASK,))
+        pad_sample_batches_action_mask(
+            samples=samples, keys=keys + (ACTION_MASK,), has_batch_dim=has_batch_dim
+        )
     elif is_graph_dict_multiinput(first_subobs):
         # pad each subobs (that are graphs)
         for subkey in first_subobs:
-            pad_sample_batches_obs(samples=samples, keys=keys + (subkey,))
+            pad_sample_batches_obs(
+                samples=samples, keys=keys + (subkey,), has_batch_dim=has_batch_dim
+            )
     else:
         # not a graph => nothing to pad
         ...
 
 
 def pad_sample_batches_action_mask(
-    samples: list[dict[str, Any]], keys: tuple[str, ...]
+    samples: list[dict[str, Any]], keys: tuple[str, ...], has_batch_dim: bool = True
 ) -> None:
-    if len(set(get_item(s, keys).shape[1] for s in samples)) > 1:
+    node_edge_id_dim = 1 if has_batch_dim else 0
+    if len(set(get_item(s, keys).shape[node_edge_id_dim] for s in samples)) > 1:
         # different number of nodes => padding
-        max_n_nodes = max(get_item(s, keys).shape[1] for s in samples)
+        max_n_nodes = max(get_item(s, keys).shape[node_edge_id_dim] for s in samples)
         for s in samples:
             set_item(
                 s,
                 keys=keys,
-                value=pad_axis(get_item(s, keys), max_n_nodes, axis=1),
+                value=pad_axis(get_item(s, keys), max_n_nodes, axis=node_edge_id_dim),
             )

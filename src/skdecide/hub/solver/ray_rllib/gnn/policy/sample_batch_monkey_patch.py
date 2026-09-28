@@ -14,10 +14,10 @@ from skdecide.hub.solver.ray_rllib.gnn.policy.sample_batch_original_code import 
 def monkey_patch_concat_samples(graph2node: bool = False) -> None:
     """Monkey patch rllib so that concat_samples pad graph arrays if necessary.
 
-    Note we need to update functions
+    Note we need to update function's
     - `__code__`:  bytecode
     - `__globals__`: namespace, immutable attribute, which is actually
-       the namespace of the functions modules
+       the namespace of the function's modules
 
     That's why
     - we put `original_concat_samples` in a dedicated module so that its namespace can be updated by

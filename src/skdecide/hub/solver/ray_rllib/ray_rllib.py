@@ -67,6 +67,7 @@ from skdecide.hub.solver.ray_rllib.gnn.connectors.numpy_to_tensor import (
     GraphNumpyToTensor,
 )
 from skdecide.hub.solver.ray_rllib.gnn.utils.monkey_patch import (
+    monkey_patch_rllib_for_graph,
     unmonkey_patch_rllib_for_graph,
 )
 from skdecide.hub.solver.ray_rllib.gnn.utils.spaces.space_utils import (
@@ -424,37 +425,38 @@ class RayRLlib(Solver, Policies, Restorable):
                 "MultiAgent" + self._config.replay_buffer_config["type"]
             )
 
-        # # monkey patch rllib for graph handling
-        # # NB: We would rather do
-        # # ```python
-        # # self._algo.env_runner_group.foreach_worker(
-        # #     lambda worker: monkey_patch_rllib_for_graph()
-        # # )
-        # # ```
-        # # as for unpatching at the end of `_solve()`.
-        # # But at that point the env_runner_group has not been yet properly initialized with all the workers
-        # # only the local worker exists. (It will be updated at the beginning of the training process, from the config.)
-        # # So instead we use a custom RolloutWorker class that monkey-patch when initialized.
-        # if self._is_graph_obs or self._is_graph_multiinput_obs:
-        #     if self._graph2node:
-        #         if not isinstance(
-        #             self._config.env_runner_cls,
-        #             (type(None), Graph2NodeRolloutWorker),
-        #         ):
-        #             logger.warning(
-        #                 "The EnvRunner class to use for environment rollouts (data collection) will be overriden "
-        #                 "by Graph2NodeRolloutWorker so that buffers manage properly graphs concatenation."
-        #             )
-        #         self._config.env_runners(env_runner_cls=Graph2NodeRolloutWorker)
-        #     else:
-        #         if not isinstance(
-        #             self._config.env_runner_cls, (type(None), GraphRolloutWorker)
-        #         ):
-        #             logger.warning(
-        #                 "The EnvRunner class to use for environment rollouts (data collection) will be overriden "
-        #                 "by GraphRolloutWorker so that buffers manage properly graphs concatenation."
-        #             )
-        #         self._config.env_runners(env_runner_cls=GraphRolloutWorker)
+        # monkey patch rllib for graph handling
+        # NB: We would rather do
+        # ```python
+        # self._algo.env_runner_group.foreach_worker(
+        #     lambda worker: monkey_patch_rllib_for_graph()
+        # )
+        # ```
+        # as for unpatching at the end of `_solve()`.
+        # But at that point the env_runner_group has not been yet properly initialized with all the workers
+        # only the local worker exists. (It will be updated at the beginning of the training process, from the config.)
+        # So instead we use a custom RolloutWorker class that monkey-patch when initialized.
+        if self._is_graph_obs or self._is_graph_multiinput_obs:
+            monkey_patch_rllib_for_graph()
+            # if self._graph2node:
+            #     if not isinstance(
+            #         self._config.env_runner_cls,
+            #         (type(None), Graph2NodeRolloutWorker),
+            #     ):
+            #         logger.warning(
+            #             "The EnvRunner class to use for environment rollouts (data collection) will be overriden "
+            #             "by Graph2NodeRolloutWorker so that buffers manage properly graphs concatenation."
+            #         )
+            #     self._config.env_runners(env_runner_cls=Graph2NodeRolloutWorker)
+            # else:
+            #     if not isinstance(
+            #         self._config.env_runner_cls, (type(None), GraphRolloutWorker)
+            #     ):
+            #         logger.warning(
+            #             "The EnvRunner class to use for environment rollouts (data collection) will be overriden "
+            #             "by GraphRolloutWorker so that buffers manage properly graphs concatenation."
+            #         )
+            #     self._config.env_runners(env_runner_cls=GraphRolloutWorker)
 
         # rl-module config (custom or defined according to classic vs graph obs and masking vs no masking=
         if self._rl_module_spec is None:
