@@ -173,11 +173,11 @@ def test_dict_ppo(unmasked_jsp_dict_domain_factory, ppo_config, ray_init):
     reason="GNN not yet implemented with new api stack of ray.rllib",
     raises=NotImplementedError,
 )
-def test_ppo_masked(graph_domain_factory, graphppo_config, ray_init):
+def test_ppo_masked(graph_domain_factory, ppo_config, ray_init):
     domain_factory = graph_domain_factory
-    solver_kwargs = dict(algo_class=GraphPPO, train_iterations=1)
+    solver_kwargs = dict(algo_class=PPO, train_iterations=1)
     with RayRLlib(
-        domain_factory=domain_factory, config=graphppo_config, **solver_kwargs
+        domain_factory=domain_factory, config=ppo_config, **solver_kwargs
     ) as solver:
         assert solver._action_masking and solver._is_graph_obs
         solver.solve()
@@ -199,11 +199,11 @@ def test_ppo_masked(graph_domain_factory, graphppo_config, ray_init):
     reason="GNN not yet implemented with new api stack of ray.rllib",
     raises=NotImplementedError,
 )
-def test_dict_ppo_masked(jsp_dict_domain_factory, graphppo_config, ray_init):
+def test_dict_ppo_masked(jsp_dict_domain_factory, ppo_config, ray_init):
     domain_factory = jsp_dict_domain_factory
-    solver_kwargs = dict(algo_class=GraphPPO, train_iterations=1)
+    solver_kwargs = dict(algo_class=PPO, train_iterations=1)
     with RayRLlib(
-        domain_factory=domain_factory, config=graphppo_config, **solver_kwargs
+        domain_factory=domain_factory, config=ppo_config, **solver_kwargs
     ) as solver:
         assert solver._action_masking and solver._is_graph_multiinput_obs
         solver.solve()
@@ -228,7 +228,7 @@ def test_ppo_masked_user_gnn(
     jsp_domain_factory,
     my_gnn_class,
     my_gnn_kwargs,
-    graphppo_config,
+    ppo_config,
     ray_init,
     caplog,
 ):
@@ -238,7 +238,7 @@ def test_ppo_masked_user_gnn(
     gnn_kwargs = my_gnn_kwargs(gnn_out_dim=gnn_out_dim)
 
     solver_kwargs = dict(
-        algo_class=GraphPPO,
+        algo_class=PPO,
         train_iterations=1,
         graph_feature_extractors_kwargs=dict(
             gnn_class=gnn_class,
@@ -248,7 +248,7 @@ def test_ppo_masked_user_gnn(
         ),
     )
     with RayRLlib(
-        domain_factory=domain_factory, config=graphppo_config, **solver_kwargs
+        domain_factory=domain_factory, config=ppo_config, **solver_kwargs
     ) as solver:
         assert solver._action_masking and solver._is_graph_obs
         with caplog.at_level(logging.WARNING):
@@ -264,7 +264,7 @@ def test_dict_ppo_masked_user_gnn(
     jsp_dict_domain_factory,
     my_gnn_class,
     my_gnn_kwargs,
-    graphppo_config,
+    ppo_config,
     ray_init,
     caplog,
 ):
@@ -274,7 +274,7 @@ def test_dict_ppo_masked_user_gnn(
     gnn_kwargs = my_gnn_kwargs(gnn_out_dim=gnn_out_dim)
 
     solver_kwargs = dict(
-        algo_class=GraphPPO,
+        algo_class=PPO,
         train_iterations=1,
         graph_feature_extractors_kwargs=dict(
             gnn_class=gnn_class,
@@ -284,7 +284,7 @@ def test_dict_ppo_masked_user_gnn(
         ),
     )
     with RayRLlib(
-        domain_factory=domain_factory, config=graphppo_config, **solver_kwargs
+        domain_factory=domain_factory, config=ppo_config, **solver_kwargs
     ) as solver:
         assert solver._action_masking and solver._is_graph_multiinput_obs
         with caplog.at_level(logging.WARNING):
@@ -298,17 +298,17 @@ def test_dict_ppo_masked_user_gnn(
 )
 def test_graph2node_ppo(
     unmasked_jsp_domain_factory,
-    graphppo_config,
+    ppo_config,
     ray_init,
 ):
     domain_factory = unmasked_jsp_domain_factory
     solver_kwargs = dict(
-        algo_class=GraphPPO,
+        algo_class=PPO,
         train_iterations=1,
         graph_node_action=True,
     )
     with RayRLlib(
-        domain_factory=domain_factory, config=graphppo_config, **solver_kwargs
+        domain_factory=domain_factory, config=ppo_config, **solver_kwargs
     ) as solver:
         assert (
             not solver._action_masking and solver._is_graph_obs and solver._graph2node
@@ -329,17 +329,17 @@ def test_graph2node_ppo(
 )
 def test_maskable_graph2node_ppo(
     jsp_graph2node_domain_factory,
-    graphppo_config,
+    ppo_config,
     ray_init,
 ):
     domain_factory = jsp_graph2node_domain_factory
     solver_kwargs = dict(
-        algo_class=GraphPPO,
+        algo_class=PPO,
         train_iterations=1,
         graph_node_action=True,
     )
     with RayRLlib(
-        domain_factory=domain_factory, config=graphppo_config, **solver_kwargs
+        domain_factory=domain_factory, config=ppo_config, **solver_kwargs
     ) as solver:
         assert solver._action_masking and solver._is_graph_obs and solver._graph2node
         solver.solve()

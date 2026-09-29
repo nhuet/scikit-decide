@@ -175,11 +175,15 @@ def pad_batched_graph_dict(
             encoding_n_nodes_edge_links,
         ),
         axis=node_edge_id_dim,
-    )
+    ).view(type(edge_links))  # keep BatchedNDArray wrapper if present
 
     # nodes and edges: pad with 0
-    nodes = pad_axis(nodes, max_n_nodes, axis=node_edge_id_dim)
-    edges = pad_axis(edges, max_n_edges, axis=node_edge_id_dim)
+    nodes = pad_axis(nodes, max_n_nodes, axis=node_edge_id_dim).view(
+        type(nodes)
+    )  # keep BatchedNDArray wrapper if present
+    edges = pad_axis(edges, max_n_edges, axis=node_edge_id_dim).view(
+        type(edges)
+    )  # keep BatchedNDArray wrapper if present
 
     # set new padded nodes, edges and edge_links
     x[NODES] = nodes
@@ -323,24 +327,44 @@ def pad_sample_batches_obs(
     first_subobs = get_item(samples[0], keys)
     if is_graph_dict(first_subobs):
         graph_dicts = tuple(get_item(s, keys) for s in samples)
-        nb_nodes_per_graph = set(
+        nb_nodes_per_graph = tuple(
             graph_dict[NODES].shape[node_edge_id_dim] for graph_dict in graph_dicts
         )
-        nb_edges_per_graph = set(
+        nb_edges_per_graph = tuple(
             graph_dict[EDGES].shape[node_edge_id_dim] for graph_dict in graph_dicts
         )
-        if len(nb_nodes_per_graph) > 1 or len(nb_edges_per_graph) > 1:
+        # We compute also nb_edge_links_per_graph as it can be different from nb_edges if some graphs have been padded
+        # (=> nb_edge_links = nb_edges +1) and some not (=> nb_edge_links = nb_edges).
+        nb_edge_links_per_graph = tuple(
+            graph_dict[EDGE_LINKS].shape[node_edge_id_dim] for graph_dict in graph_dicts
+        )
+        if (
+            len(set(nb_nodes_per_graph)) > 1
+            or len(set(nb_edges_per_graph)) > 1
+            or len(set(nb_edge_links_per_graph)) > 1
+        ):
             # different number of nodes or edges => padding
+            # different of nb of edge_links means some graph padded other not => padding
             max_n_nodes = max(nb_nodes_per_graph)
             max_n_edges = max(nb_edges_per_graph)
-            for s in samples:
-                pad_batched_graph_dict(
-                    s,
-                    keys=keys,
-                    max_n_nodes=max_n_nodes,
-                    max_n_edges=max_n_edges,
-                    has_batch_dim=has_batch_dim,
-                )
+            for i_sample, s in enumerate(samples):
+                if (
+                    (nb_nodes_per_graph[i_sample] < max_n_nodes)  # nodes to be padded
+                    or (
+                        nb_edges_per_graph[i_sample] < max_n_edges
+                    )  # edges to be padded
+                    or (
+                        nb_edge_links_per_graph[i_sample]
+                        <= nb_edges_per_graph[i_sample]
+                    )  # graph not yet padded
+                ):
+                    pad_batched_graph_dict(
+                        s,
+                        keys=keys,
+                        max_n_nodes=max_n_nodes,
+                        max_n_edges=max_n_edges,
+                        has_batch_dim=has_batch_dim,
+                    )
     elif is_masked_obs(first_subobs):
         # pad "true_obs" part
         pad_sample_batches_obs(
@@ -369,8 +393,11 @@ def pad_sample_batches_action_mask(
         # different number of nodes => padding
         max_n_nodes = max(get_item(s, keys).shape[node_edge_id_dim] for s in samples)
         for s in samples:
+            action_mask = get_item(s, keys)
             set_item(
                 s,
                 keys=keys,
-                value=pad_axis(get_item(s, keys), max_n_nodes, axis=node_edge_id_dim),
+                value=pad_axis(action_mask, max_n_nodes, axis=node_edge_id_dim).view(
+                    type(action_mask)
+                ),  # keep BatchedNDArray wrapper if present
             )
