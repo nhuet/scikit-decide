@@ -269,6 +269,7 @@ class GraphJspDomain(D):
         self._kept_nodes = list(range(self._gym_env.action_space.n))
 
     def _state_reset(self) -> D.T_state:
+        self._count = 0
         return self._np_state2graph_state(self._gym_env.reset()[0])
 
     def _state_step(
@@ -281,6 +282,9 @@ class GraphJspDomain(D):
         env_state, reward, terminated, truncated, info = self._gym_env.step(
             gym_env_action
         )
+        self._count += 1
+        if self._count > 20:
+            terminated = True
         state = self._np_state2graph_state(env_state)
         if truncated:
             info["TimeLimit.truncated"] = True
