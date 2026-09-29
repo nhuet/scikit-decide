@@ -67,10 +67,11 @@ class FlattenMultiagentGraphObservations(MultiAgentObservationPreprocessor):
                     # The edge id dim is like a batch axis
                     batch_axis=True,
                 )
-                if (edges := agent_observation[EDGES])
+                if (edges := agent_observation[EDGES]).size > 0
                 else np.empty(
-                    (
-                        edge_output_space := self.input_observation_space[agent][
+                    (len(edges),)
+                    + (
+                        edge_output_space := self.observation_space[agent][
                             EDGES
                         ].child_space
                     ).shape,
@@ -107,7 +108,7 @@ class FlattenMultiagentGraphObservations(MultiAgentObservationPreprocessor):
 def _flatten_space(space: gym.spaces.Box | gym.spaces.Discrete) -> gym.spaces.Box:
     if isinstance(space, gym.spaces.Box):
         low = space.low.min()
-        high = space.high.min()
+        high = space.high.max()
     elif isinstance(space, gym.spaces.Discrete):
         low = 0
         high = 1
