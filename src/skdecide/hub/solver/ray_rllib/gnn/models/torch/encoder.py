@@ -21,7 +21,11 @@ from skdecide.hub.solver.utils.gnn.torch_layers import GraphFeaturesExtractor
 if TYPE_CHECKING:
     from skdecide.hub.solver.ray_rllib.gnn.models.configs import (
         GnnEncoderConfig,
+        MultiinputEncoderConfig,
     )
+
+
+FRAMEWORK = "torch"
 
 
 class TorchGnnEncoder(TorchModel, Encoder):
@@ -42,3 +46,21 @@ class TorchGnnEncoder(TorchModel, Encoder):
         observations = input_dict[Columns.OBS]
         graph_observations = batched_torch_graph_dict_to_thg_data(observations)
         return {ENCODER_OUT: self.extractor.forward(observations=graph_observations)}
+
+
+class TorchMultiinputEncoder(TorchModel, Encoder):
+    config: MultiinputEncoderConfig
+
+    def __init__(self, config: MultiinputEncoderConfig):
+        super().__init__(config)
+        self.encoders = {}
+        for (
+            key,
+            subspace_encoder_config,
+        ) in self.config.subspace_encoder_configs.items():
+            self.encoders[key] = subspace_encoder_config.build(framework=FRAMEWORK)
+
+    def _forward(self, input_dict: dict, **kwargs) -> dict:
+        ...
+        # TODO forward pass on all subspaces + concatenate
+        # si pas flatten => raise not ImplementedError

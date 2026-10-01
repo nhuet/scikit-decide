@@ -87,13 +87,13 @@ def test_ppo_user_gnn(
             gnn_class=gnn_class,
             gnn_kwargs=gnn_kwargs,
             gnn_out_dim=gnn_out_dim,
-            features_dim=64,
+            features_dim=32,
         ),
     )
     with RayRLlib(
         domain_factory=domain_factory, config=ppo_config, **solver_kwargs
     ) as solver:
-        with caplog.at_level(logging.WARNING):
+        with caplog.at_level(logging.DEBUG):
             solver.solve()
         rollout(
             domain=domain_factory(),
@@ -135,7 +135,7 @@ def test_ppo_user_reduction_layer(
     with RayRLlib(
         domain_factory=domain_factory, config=ppo_config, **solver_kwargs
     ) as solver:
-        with caplog.at_level(logging.WARNING):
+        with caplog.at_level(logging.DEBUG):
             solver.solve()
         rollout(
             domain=domain_factory(),

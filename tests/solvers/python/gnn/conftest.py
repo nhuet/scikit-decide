@@ -593,7 +593,7 @@ class MyGNN(thg.nn.models.GAT):
             **kwargs,
         )
         self.custom_param = custom_param
-        logging.warning(self.warning())
+        logging.debug(self.warning())
 
     def warning(self) -> str:
         return self.LOG_SENTENCE + f" custom_param={self.custom_param}"
@@ -617,7 +617,7 @@ class MyReductionLayer(th.nn.Module):
         self.features_dim = features_dim
         self.linear_layer = th.nn.Linear(gnn_out_dim, features_dim)
         self.custom_param = custom_param
-        logging.warning(self.warning())
+        logging.debug(self.warning())
 
     def warning(self) -> str:
         return self.LOG_SENTENCE + f" custom_param={self.custom_param}"

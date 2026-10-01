@@ -459,7 +459,7 @@ class RayRLlib(Solver, Policies, Restorable):
         # rl-module config (custom or defined according to classic vs graph obs and masking vs no masking=
         if self._rl_module_spec is None:
             # catalog_class => encoder class (e.g. GNN for graph obs)
-            if self._is_graph_obs:
+            if self._is_graph_obs or self._is_graph_multiinput_obs:
                 if self._algo_class is PPO:
                     catalog_class = GraphPPOCatalog
                 else:
@@ -471,6 +471,8 @@ class RayRLlib(Solver, Policies, Restorable):
                 catalog_class = None
 
             # rl-module class => e.g. apply mask to logits
+            default_model_config = None
+            default_module_class = None
             if self._action_masking:
                 if self._config.get("framework") not in ["torch"]:
                     raise NotImplementedError(
@@ -495,25 +497,14 @@ class RayRLlib(Solver, Policies, Restorable):
                         "use your own RL module."
                     )
 
-            elif self._is_graph_obs:
+            elif self._is_graph_obs or self._is_graph_multiinput_obs:
                 if self._config.get("framework") not in ["torch"]:
                     raise NotImplementedError(
                         "Graph observation with RLlib requires PyTorch framework or use your own RL module."
                     )
-                default_module_class = None
-                # raise NotImplementedError(
-                #     "RLlib + GNN not yet implemented with new api stack."
-                # )
-            elif self._is_graph_multiinput_obs:
-                if self._config.get("framework") not in ["torch"]:
-                    raise NotImplementedError(
-                        "Graph observation with RLlib requires PyTorch framework or use your own RL module."
-                    )
-                raise NotImplementedError(
-                    "RLlib + GNN not yet implemented with new api stack."
+                default_model_config = dict(
+                    graph_features_extractor_kwargs=self._graph_feature_extractors_kwargs,
                 )
-            else:
-                default_module_class = None
 
             rl_module_spec = MultiRLModuleSpec(
                 rl_module_specs={
@@ -523,7 +514,9 @@ class RayRLlib(Solver, Policies, Restorable):
                         ),
                         # action_space=rl_module_act_spaces[module_id],
                         # observation_space=rl_module_act_spaces[module_id],
-                        model_config=self._model_configs.get(module_id, {}),
+                        model_config=self._model_configs.get(
+                            module_id, default_model_config
+                        ),
                         catalog_class=catalog_class,
                     )
                     for module_id in self._agent2module_id.values()
