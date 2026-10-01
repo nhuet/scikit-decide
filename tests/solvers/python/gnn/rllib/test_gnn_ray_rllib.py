@@ -39,9 +39,9 @@ def ppo_config():
         )
         # small number to increase speed of the unit test
         .training(minibatch_size=16, train_batch_size_per_learner=32)
-        # uncomment next line to run in local mode and debug more easily
-        .env_runners(num_env_runners=0)
-        .learners(num_learners=0)
+        # uncomment next lines to run in local mode and debug more easily
+        # .env_runners(num_env_runners=0)
+        # .learners(num_learners=0)
     )
 
 
