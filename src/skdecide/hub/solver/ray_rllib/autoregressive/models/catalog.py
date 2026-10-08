@@ -12,8 +12,12 @@ from skdecide.hub.solver.ray_rllib.common.constants import TORCH_FRAMEWORK
 
 
 class AutoregressiveCatalog(Catalog):
-    def get_action_dist_cls(self, framework: str):
+    def get_action_dist_cls(self, framework: str) -> type[Distribution]:
         return get_action_dist_cls(framework=framework, action_space=self.action_space)
+
+    def get_action_dist_cls_per_component(
+        self, framework: str
+    ) -> list[type[Distribution]]: ...
 
 
 def get_action_dist_cls(framework: str, action_space: gym.Space) -> type[Distribution]:
