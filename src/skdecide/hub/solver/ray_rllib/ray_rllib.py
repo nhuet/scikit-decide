@@ -175,6 +175,7 @@ class RayRLlib(Solver, Policies, Restorable):
         graph_feature_extractors_kwargs: Optional[dict[str, Any]] = None,
         graph_node_action: bool = False,
         graph_node_action_net_kwargs: Optional[dict[str, Any]] = None,
+        autoregressive_action: bool = False,
         **kwargs,
     ) -> None:
         """Initialize Ray RLlib.
@@ -209,6 +210,13 @@ class RayRLlib(Solver, Policies, Restorable):
             size is derived at runtime from the observation graph.
         graph_node_action_net_kwargs: if graph_node_action, these are the kwargs to the `Graph2NodeLayer` model used to
             predict actions from the observation. See `skdecide.hub.solver.utils.gnn.torch_layers.Graph2NodeLayer`.
+        autoregressive_action: if True,
+          - context: action is made of several components, a component meaning depending on previous components
+          - hypotheses:
+            - action space should be a MultiDiscreteSpace
+            - get_applicable_actions() should return an enumerable space
+          - the rl-module will predict each action component by using the observation enriched by the previous components
+            and will mask it according to current applicable actions
         **kwargs: used to update the algo config with kwargs automatically filled by optuna.
 
         #### Masking
