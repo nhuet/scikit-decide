@@ -5,6 +5,7 @@
 import logging
 import os
 
+import numpy as np
 import ray
 from pytest_cases import fixture
 from ray.rllib.algorithms import PPO
@@ -19,6 +20,7 @@ from skdecide.hub.solver.ray_rllib.gnn.models.torch.encoder import (
     TorchMultiinputEncoder,
 )
 from skdecide.hub.solver.ray_rllib.ray_rllib import SK_DEFAULT_MODULE_ID
+from skdecide.hub.solver.utils.torch.utils import extract_module_parameters_values
 from skdecide.utils import rollout
 
 
@@ -54,12 +56,30 @@ def test_ppo(unmasked_graph_domain_factory, ppo_config, ray_init):
         domain_factory=domain_factory, config=ppo_config, **solver_kwargs
     ) as solver:
         assert not solver._action_masking and solver._is_graph_obs
-        solver.solve()
+        solver._init_algo()
+
+        # store weigths to see if they update during training
         rl_module = solver.get_policy()
         agent_rl_module = rl_module.get(SK_DEFAULT_MODULE_ID)
         assert isinstance(agent_rl_module, DefaultPPOTorchRLModule)
         assert isinstance(agent_rl_module.encoder, TorchActorCriticEncoder)
         assert isinstance(agent_rl_module.encoder.actor_encoder, TorchGnnEncoder)
+        encoder_init_params = extract_module_parameters_values(
+            agent_rl_module.encoder.actor_encoder
+        )
+
+        solver.solve()
+
+        # check weights have been updated
+        encoder_final_params = extract_module_parameters_values(
+            agent_rl_module.encoder.actor_encoder
+        )
+        assert not (
+            all(
+                np.allclose(encoder_init_params[name], encoder_final_params[name])
+                for name in encoder_init_params
+            )
+        )
         rollout(
             domain=domain_factory(),
             solver=solver,

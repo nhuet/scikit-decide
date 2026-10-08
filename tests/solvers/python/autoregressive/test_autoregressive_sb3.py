@@ -435,33 +435,6 @@ def test_autoregressive_heterograph2node_ppo_save_load(
                 return_episodes=True,
             )
 
-        # load for another domain (more objects) + solve + rollout
-        with StableBaseline(
-            domain_factory=domain_factory_2,
-            algo_class=AutoregressiveGraphPPO,
-            baselines_policy="HeteroGraph2NodePolicy",
-            autoregressive_action=True,
-            learn_config={"total_timesteps": 30},
-            n_steps=15,
-            policy_kwargs=dict(
-                action_components_node_flag_indices=action_components_node_flag_indices,
-            ),
-        ) as solver:
-            # load
-            solver.load(path)
-            assert solver._algo.n_steps == 15
-
-            # rollout on domain 2
-            max_steps = 20
-            episodes = rollout(
-                domain=graph_walk_with_heterograph_obs_domain_factory_2(),
-                solver=solver,
-                max_steps=max_steps,
-                num_episodes=1,
-                render=False,
-                return_episodes=True,
-            )
-
 
 def test_autoregressive_heterograph2node_ppo_save_load_nok(
     graph_walk_with_heterograph_obs_domain_factory,

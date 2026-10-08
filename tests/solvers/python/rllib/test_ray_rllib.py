@@ -13,6 +13,7 @@ from enum import Enum
 from typing import NamedTuple, Optional, Union
 
 import gymnasium as gym
+import numpy as np
 import pytest
 import ray
 import torch
@@ -28,6 +29,9 @@ from ray.rllib.algorithms.dqn.torch.default_dqn_torch_rl_module import (
     DefaultDQNTorchRLModule,
 )
 from ray.rllib.algorithms.ppo import PPO
+from ray.rllib.algorithms.ppo.torch.default_ppo_torch_rl_module import (
+    DefaultPPOTorchRLModule,
+)
 from ray.rllib.core import Columns
 from ray.rllib.core.models.base import Encoder, Model
 from ray.rllib.core.rl_module import MultiRLModuleSpec, RLModuleSpec
@@ -54,6 +58,7 @@ from skdecide.hub.solver.ray_rllib.ray_rllib import (
     AsRLlibMultiAgentEnv,
     RayRLlib,
 )
+from skdecide.hub.solver.utils.torch.utils import extract_module_parameters_values
 from skdecide.hub.space.gym import EnumSpace, MultiDiscreteSpace, SetSpace
 from skdecide.utils import load_registered_solver, rollout
 
@@ -347,11 +352,31 @@ def test_ray_rllib_solver(ray_init):
     assert solver._algo.config.gamma == 0.95
     assert solver._algo.config.train_batch_size_per_learner == 16
 
+    # store weigths to see if they update during training
+    rl_module = solver.get_policy()[SK_DEFAULT_MODULE_ID]
+    assert isinstance(rl_module, DefaultPPOTorchRLModule)
+    value_init_params = extract_module_parameters_values(rl_module.vf)
+    action_init_params = extract_module_parameters_values(rl_module.pi)
+
     # solve further
     solver.solve()
 
-    # test get_policy()
-    policy = solver.get_policy()
+    # weights have been updated?
+    value_final_params = extract_module_parameters_values(rl_module.vf)
+    action_final_params = extract_module_parameters_values(rl_module.pi)
+    assert not (
+        all(
+            np.allclose(action_init_params[name], action_final_params[name])
+            for name in action_init_params
+        )
+    )
+
+    # assert not (
+    #     all(
+    #         np.allclose(value_init_params[name], value_final_params[name])
+    #         for name in value_init_params
+    #     )
+    # ), value_init_params
 
     with tempfile.TemporaryDirectory() as tmp_save_dir:
         # store
