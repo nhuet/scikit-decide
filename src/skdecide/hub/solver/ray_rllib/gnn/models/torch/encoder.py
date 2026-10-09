@@ -82,6 +82,6 @@ class TorchMultiinputEncoder(TorchModel, Encoder):
                     self.encoders[key]({Columns.OBS: obs})[ENCODER_OUT]
                     for key, obs in observations.items()
                 ),
-                dim=1,
+                dim=-1,
             )
         }
