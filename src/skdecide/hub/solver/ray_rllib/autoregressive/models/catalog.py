@@ -17,7 +17,16 @@ class AutoregressiveCatalog(Catalog):
 
     def get_action_dist_cls_per_component(
         self, framework: str
-    ) -> list[type[Distribution]]: ...
+    ) -> list[type[Distribution]]:
+        if isinstance(self.action_space, gym.spaces.MultiDiscrete):
+            return [
+                self._get_dist_cls_from_action_space(
+                    action_space=gym.spaces.Discrete(n=n, start=start)
+                )
+                for n, start in zip(self.action_space.nvec, self.action_space.start)
+            ]
+        else:
+            raise NotImplementedError()
 
 
 def get_action_dist_cls(framework: str, action_space: gym.Space) -> type[Distribution]:
