@@ -1,7 +1,6 @@
 #  Copyright (c) AIRBUS and its affiliates.
 #  This source code is licensed under the MIT license found in the
 #  LICENSE file in the root directory of this source tree.
-from typing import Optional
 
 import torch
 from ray.rllib.algorithms.ppo.torch.default_ppo_torch_rl_module import (
@@ -17,7 +16,6 @@ from skdecide.hub.solver.ray_rllib.action_masking.rl_module.base import (
 )
 from skdecide.hub.solver.ray_rllib.action_masking.utils.spaces.space_utils import (
     ACTION_MASK,
-    TRUE_OBS,
 )
 
 
@@ -57,31 +55,6 @@ class ActionMaskingPPOTorchRLModule(ActionMaskingRLModule, DefaultPPOTorchRLModu
         # Call the super's method to compute values for GAE.
         return super().compute_values(batch, embeddings)
 
-    def preprocess_batch(
-        self, batch: dict[str, TensorType], **kwargs
-    ) -> tuple[TensorType, dict[str, TensorType]]:
-        """Extracts observations and action mask from the batch
-
-        Args:
-            batch: A dictionary containing tensors (at least `Columns.OBS`)
-
-        Returns:
-            A tuple with the action mask tensor and the modified batch containing
-                the original observations.
-        """
-        # Check observation specs for action mask and observation keys.
-        self._check_batch(batch)
-
-        # Extract the available actions tensor from the observation.
-        action_mask = batch[Columns.OBS].pop(ACTION_MASK)
-
-        # Modify the batch for the `DefaultPPORLModule`'s `forward` method, i.e.
-        # pass only `"obs"` into the `forward` method.
-        batch[Columns.OBS] = batch[Columns.OBS].pop(TRUE_OBS)
-
-        # Return the extracted action mask and the modified batch.
-        return action_mask, batch
-
     def _mask_action_logits(
         self, batch: dict[str, TensorType], action_mask: TensorType
     ) -> dict[str, TensorType]:
@@ -109,35 +82,3 @@ class ActionMaskingPPOTorchRLModule(ActionMaskingRLModule, DefaultPPOTorchRLModu
 
         # Return the batch with the masked action logits.
         return batch
-
-    def _check_batch(self, batch: dict[str, TensorType]) -> Optional[ValueError]:
-        """Assert that the batch includes action mask and observations.
-
-        Args:
-            batch: A dicitonary containing tensors (at least `Columns.OBS`) to be
-                checked.
-
-        Raises:
-            `ValueError` if the column `Columns.OBS`  does not contain observations
-                and action mask.
-        """
-        if not self._checked_observations:
-            if ACTION_MASK not in batch[Columns.OBS]:
-                raise ValueError(
-                    "No action mask found in observation. This `RLModule` requires "
-                    "the environment to provide observations that include an "
-                    "action mask (i.e. an observation space of the Dict space "
-                    "type that looks as follows: \n"
-                    "{'action_mask': Box(0.0, 1.0, shape=(self.action_space.n,)),"
-                    "'observations': self.observation_space}"
-                )
-            if TRUE_OBS not in batch[Columns.OBS]:
-                raise ValueError(
-                    "No observations found in observation. This 'RLModule` requires "
-                    "the environment to provide observations that include the original "
-                    "observations under a key `'observations'` in a dict (i.e. an "
-                    "observation space of the Dict space type that looks as follows: \n"
-                    "{'action_mask': Box(0.0, 1.0, shape=(self.action_space.n,)),"
-                    "'observations': <observation_space>}"
-                )
-            self._checked_observations = True

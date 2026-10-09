@@ -118,7 +118,7 @@ class ActionMaskingRLModule(RLModule):
                 and action mask.
         """
         if not self._checked_observations:
-            if "action_mask" not in batch[Columns.OBS]:
+            if ACTION_MASK not in batch[Columns.OBS]:
                 raise ValueError(
                     "No action mask found in observation. This `RLModule` requires "
                     "the environment to provide observations that include an "
@@ -127,7 +127,7 @@ class ActionMaskingRLModule(RLModule):
                     "{'action_mask': Box(0.0, 1.0, shape=(self.action_space.n,)),"
                     "'observations': self.observation_space}"
                 )
-            if "observations" not in batch[Columns.OBS]:
+            if TRUE_OBS not in batch[Columns.OBS]:
                 raise ValueError(
                     "No observations found in observation. This 'RLModule` requires "
                     "the environment to provide observations that include the original "
