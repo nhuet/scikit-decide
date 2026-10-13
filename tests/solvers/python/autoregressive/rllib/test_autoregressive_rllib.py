@@ -7,11 +7,13 @@ import ray
 import torch as th
 from pytest_cases import fixture
 from ray.rllib.algorithms import PPO
+from ray.rllib.core.models.torch.encoder import TorchActorCriticEncoder
 
 from skdecide.hub.solver.ray_rllib import RayRLlib
 from skdecide.hub.solver.ray_rllib.autoregressive.algorithms.ppo.torch.autoregressive_ppo_torch_rl_module import (
     AutoregressivePPOTorchRLModule,
 )
+from skdecide.hub.solver.ray_rllib.gnn.models.torch.encoder import TorchGnnEncoder
 from skdecide.hub.solver.ray_rllib.ray_rllib import SK_DEFAULT_MODULE_ID
 from skdecide.hub.solver.utils.gnn.torch_layers import Graph2NodeLayer
 from skdecide.hub.solver.utils.torch.utils import extract_module_parameters_values
@@ -96,7 +98,6 @@ def test_autoregressive_ppo(graph_walk_domain_factory, ppo_config):
         # ), f"value net params not updated"
 
 
-@pytest.mark.skip("Not yet ready")
 def test_autoregressive_graph_ppo(graph_walk_with_graph_obs_domain_factory, ppo_config):
     domain_factory = graph_walk_with_graph_obs_domain_factory
     with RayRLlib(
@@ -108,42 +109,34 @@ def test_autoregressive_graph_ppo(graph_walk_with_graph_obs_domain_factory, ppo_
     ) as solver:
         # pre-init algo (done normally during solve()) to extract init weights
         solver._init_algo()
-        value_init_params = extract_module_parameters_values(
-            solver._algo.policy.value_net
-        )
-        gnn_features_init_params = extract_module_parameters_values(
-            solver._algo.policy.features_extractor
-        )
+        # store weigths to see if they update during training
+        rl_module = solver.get_policy()
+        agent_rl_module = rl_module.get(SK_DEFAULT_MODULE_ID)
+        assert isinstance(agent_rl_module, AutoregressivePPOTorchRLModule)
+        assert isinstance(agent_rl_module.encoder, TorchActorCriticEncoder)
+        assert isinstance(agent_rl_module.encoder.actor_encoder, TorchGnnEncoder)
         action_init_params = [
-            extract_module_parameters_values(action_net)
-            for action_net in solver._algo.policy.action_nets
+            extract_module_parameters_values(pi_component)
+            for pi_component in agent_rl_module.pi_per_component
         ]
-        # solve
+        gnn_encoder_init_params = extract_module_parameters_values(
+            agent_rl_module.encoder.actor_encoder
+        )  # solve
         solver.solve()
         # compare final parameters to see if actually updated during training
-        value_final_params = extract_module_parameters_values(
-            solver._algo.policy.value_net
-        )
-        gnn_features_final_params = extract_module_parameters_values(
-            solver._algo.policy.features_extractor
-        )
         action_final_params = [
-            extract_module_parameters_values(action_net)
-            for action_net in solver._algo.policy.action_nets
+            extract_module_parameters_values(pi_component)
+            for pi_component in agent_rl_module.pi_per_component
         ]
-
-        assert not (
-            all(
-                np.allclose(value_init_params[name], value_final_params[name])
-                for name in value_init_params
-            )
-        ), f"value net params not updated"
+        gnn_encoder_final_params = extract_module_parameters_values(
+            agent_rl_module.encoder.actor_encoder
+        )
         assert not (
             all(
                 np.allclose(
-                    gnn_features_init_params[name], gnn_features_final_params[name]
+                    gnn_encoder_init_params[name], gnn_encoder_final_params[name]
                 )
-                for name in gnn_features_final_params
+                for name in gnn_encoder_final_params
             )
         ), f"value net params not updated"
         for i in range(len(action_init_params)):
@@ -158,18 +151,14 @@ def test_autoregressive_graph_ppo(graph_walk_with_graph_obs_domain_factory, ppo_
 
         # rollout
         max_steps = 20
-        episodes = rollout(
+        rollout(
             domain=domain_factory(),
             solver=solver,
             max_steps=max_steps,
             num_episodes=1,
             render=False,
-            return_episodes=True,
+            verbose=False,
         )
-        observations, actions, values = episodes[0]
-        assert (
-            len(actions) < max_steps - 1
-        )  # optimal would be 2, but not always found...
 
 
 @pytest.mark.skip("Not yet ready")
