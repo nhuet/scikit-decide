@@ -161,7 +161,6 @@ def test_autoregressive_graph_ppo(graph_walk_with_graph_obs_domain_factory, ppo_
         )
 
 
-@pytest.mark.skip("Not yet ready")
 def test_autoregressive_graph2node_ppo(
     graph_walk_with_graph_obs_domain_factory, ppo_config
 ):

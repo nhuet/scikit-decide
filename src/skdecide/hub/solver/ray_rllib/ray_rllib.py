@@ -77,6 +77,7 @@ from skdecide.hub.solver.ray_rllib.autoregressive.connectors.pad_action_dist_inp
 from skdecide.hub.solver.ray_rllib.autoregressive.utils.spaces.space_utils import (
     APPLICABLE_ACTIONS,
     create_agent_applicable_actions_space,
+    create_agent_autoregressive_action_space,
 )
 from skdecide.hub.solver.ray_rllib.autoregressive.utils.spaces.space_utils import (
     TRUE_OBS as AUTOREGRESSIVE_TRUE_OBS,
@@ -110,7 +111,7 @@ from skdecide.hub.solver.ray_rllib.gnn.utils.spaces.space_utils import (
     convert_graph_to_dict,
 )
 from skdecide.hub.solver.ray_rllib.utils import compute_action_new_api_stack_multi_agent
-from skdecide.hub.space.gym import GymSpace
+from skdecide.hub.space.gym import GymSpace, MultiDiscreteSpace
 
 logger = logging.getLogger(__name__)
 
@@ -200,6 +201,9 @@ class RayRLlib(Solver, Policies, Restorable):
         graph_node_action: bool = False,
         graph_node_action_net_kwargs: Optional[dict[str, Any]] = None,
         autoregressive_action: bool = False,
+        autoregressive_action_nb_graph_independent_components: int | None = None,
+        autoregressive_action_components_node_flag_indices: list[int | None]
+        | None = None,
         **kwargs,
     ) -> None:
         """Initialize Ray RLlib.
@@ -237,10 +241,19 @@ class RayRLlib(Solver, Policies, Restorable):
         autoregressive_action: if True,
           - context: action is made of several components, a component meaning depending on previous components
           - hypotheses:
-            - action space should be a MultiDiscreteSpace
+            - each agent action space should be a MultiDiscreteSpace (even better a MaskableMultiDiscreteSpace)
             - get_applicable_actions() should return an enumerable space
           - the rl-module will predict each action component by using the observation enriched by the previous components
             and will mask it according to current applicable actions
+        autoregressive_action_nb_graph_independent_components: Number of graph independent componennts
+            when `autoregressive_action` is True and the observations are graphs,
+            meaning that last components are actually observation graph nodes.
+            Default to total number of action components or
+            to number of None in `autoregressive_action_components_node_flag_indices` if specified.
+        autoregressive_action_components_node_flag_indices: indices of binary node features for each action component
+            when `autoregressive_action` is True and observations are heterogeneous graphs
+            whose node types are given via binary node features.
+            If specified, None values mean graph independent components and should correspond to first components.
         **kwargs: used to update the algo config with kwargs automatically filled by optuna.
 
         #### Masking
@@ -272,6 +285,18 @@ class RayRLlib(Solver, Policies, Restorable):
           of nodes.
           See `skdecide.hub.solver.utils.gnn.torch_layers.Graph2NodeLayer` for more details
           and use `graph_node_action_net_kwargs` to customize it.
+
+        #### Autoregressive actions
+
+        if `autoregressive_action` is True, we assume that
+        - actions are multidiscrete, with each component dependening on the previous ones.
+        - some actions can have less components (last ones are filled with -1, meaning no component)
+        - applicable actions are used to compute masks on components
+        - we can have graph observations and some components being graph nodes (and should be the last ones). It is specified via `graph_node_action` attribute.
+          In that case the number of graph independent components (the first ones) are to be specified by the user or default to 1.
+          (which could be interpreted as the action type)
+        - the graph observation can be heterogeneous with node types being specified via binary node features.
+          In that case, if `graph_node_action` is True,  a user-specified list of such binary features index (among node features) tells which node type is to be used by which component.
 
         """
         Solver.__init__(self, domain_factory=domain_factory)
@@ -332,11 +357,71 @@ class RayRLlib(Solver, Policies, Restorable):
             (self._wrapped_observation_space)
         )
 
-        # graph -> node (ie an action is a node of observation graph)
-        self._graph2node = self._is_graph_obs and graph_node_action
-
         # autoregressive action
         self._autoregressive_action = autoregressive_action
+
+        if self._autoregressive_action:
+            assert all(
+                isinstance(agent_action_space, MultiDiscreteSpace)
+                for agent_action_space in self._wrapped_action_space.values()
+            )
+            if self._is_graph_obs:
+                # potentially graph node components
+                # -> after n independent ones
+                # -> among proper types according to a node flag (= binary feature)
+                if autoregressive_action_components_node_flag_indices is not None:
+                    # heterogeneous graph node as action components
+                    # same number of graph independent action components?
+                    if autoregressive_action_nb_graph_independent_components is None:
+                        autoregressive_action_nb_graph_independent_components = sum(
+                            index is None
+                            for index in autoregressive_action_components_node_flag_indices
+                        )
+                    else:
+                        assert (
+                            sum(
+                                index is None
+                                for index in autoregressive_action_components_node_flag_indices
+                            )
+                            == autoregressive_action_nb_graph_independent_components
+                        ), (
+                            "`autoregressive_action_nb_graph_independent_components` should correspond to the number of `None` in `autoregressive_action_components_node_flag_indices`."
+                        )
+                    # graph independent action components are the first ones?
+                    assert all(
+                        isinstance(index, int)
+                        for index in autoregressive_action_components_node_flag_indices[
+                            autoregressive_action_nb_graph_independent_components:
+                        ]
+                    ), (
+                        "Graph independent components (i.e. with `None` value in autoregressive_action_components_node_flag_indices) "
+                        "must be the first components."
+                    )
+                # is there really graph node components?
+                if autoregressive_action_nb_graph_independent_components < max(
+                    len(agent_action_space.nvec)
+                    for agent_action_space in self._wrapped_action_space.values()
+                ):
+                    self._autoregressive_action_nb_graph_independent_components = (
+                        autoregressive_action_nb_graph_independent_components
+                    )
+                    self._autoregressive_action_components_node_flag_indices = (
+                        autoregressive_action_components_node_flag_indices
+                    )
+                else:
+                    # only independent components
+                    self._autoregressive_action_nb_graph_independent_components = None
+                    self._autoregressive_action_components_node_flag_indices = None
+            else:
+                self._autoregressive_action_nb_graph_independent_components = None
+                self._autoregressive_action_components_node_flag_indices = None
+
+        # graph -> node (ie an action is a node of observation graph, or some components are nodes for autoregressive action)
+        self._graph2node = (self._is_graph_obs and graph_node_action) or (
+            self._is_graph_obs
+            and self._autoregressive_action
+            and self._autoregressive_action_nb_graph_independent_components is not None
+        )
 
         # Handle kwargs (potentially generated by optuna)
         if "train_batch_size_per_learner_log2" in kwargs:
@@ -753,6 +838,8 @@ class RayRLlib(Solver, Policies, Restorable):
                 action_masking=rayrllib._action_masking,
                 graph2node=rayrllib._graph2node,
                 autoregressive_action=rayrllib._autoregressive_action,
+                action_components_node_flag_indices=rayrllib._autoregressive_action_components_node_flag_indices,
+                nb_graph_independent_components=rayrllib._autoregressive_action_nb_graph_independent_components,
             ),
         )
         self._config.environment(
@@ -863,6 +950,8 @@ class AsRLlibMultiAgentEnv(MultiAgentEnvCompatibility):
         graph2node: bool = False,
         render_mode: Optional[str] = None,
         autoregressive_action: bool = False,
+        nb_graph_independent_components: int | None = None,
+        action_components_node_flag_indices: list[int | None] | None = None,
     ) -> None:
         self.possible_agents = domain.get_agents()
         self.agents = domain.get_agents()
@@ -871,6 +960,8 @@ class AsRLlibMultiAgentEnv(MultiAgentEnvCompatibility):
             action_masking=action_masking,
             graph2node=graph2node,
             autoregressive_action=autoregressive_action,
+            nb_graph_independent_components=nb_graph_independent_components,
+            action_components_node_flag_indices=action_components_node_flag_indices,
         )
         super().__init__(old_env=old_env, render_mode=render_mode)
         # new MultiAgentEnv attributes not set by MultiAgentEnvCompatibility.__init__
@@ -885,6 +976,8 @@ class AsLegacyRLlibMultiAgentEnv(AsLegacyGymV21Env):
         action_masking: bool,
         autoregressive_action: bool,
         graph2node: bool = False,
+        nb_graph_independent_components: bool | int = None,
+        action_components_node_flag_indices: list[int | None] | None = None,
     ) -> None:
         """Initialize AsLegacyRLlibMultiAgentEnv.
 
@@ -893,6 +986,8 @@ class AsLegacyRLlibMultiAgentEnv(AsLegacyGymV21Env):
         action_masking: Boolean specifying whether action masking is used
         """
         self._autoregressive_action = autoregressive_action
+        self._nb_graph_independent_components = nb_graph_independent_components
+        self._action_components_node_flag_indices = action_components_node_flag_indices
         self._graph2node = graph2node
         self._domain = domain
         self._action_masking = action_masking
@@ -915,8 +1010,14 @@ class AsLegacyRLlibMultiAgentEnv(AsLegacyGymV21Env):
 
         self.action_space = gym.spaces.Dict(
             {
-                k: agent_action_space.unwrapped()
-                for k, agent_action_space in self._wrapped_action_space.items()
+                agent: _create_agent_action_space_for_rllib(
+                    wrapped_action_space=self._wrapped_action_space,
+                    agent=agent,
+                    autoregressive_action=self._autoregressive_action,
+                    nb_graph_independent_components=self._nb_graph_independent_components,
+                    action_components_node_flag_indices=self._action_components_node_flag_indices,
+                )
+                for agent in self._wrapped_action_space
             }
         )
 
@@ -1035,7 +1136,7 @@ def _unwrap_agent_obs_space(
 
 def _create_agent_obs_space_for_rllib(
     wrapped_observation_space: dict[str, GymSpace[D.T_observation]],
-    wrapped_action_space: dict[str, EnumerableSpace[D.T_event]],
+    wrapped_action_space: dict[str, GymSpace[D.T_event]],
     agent: str,
     action_masking: bool,
     autoregressive_action: bool,
@@ -1178,6 +1279,23 @@ def _unwrap_agent_obs_with_autoregressive_action(
         ),
         APPLICABLE_ACTIONS: np.array(applicable_actions[agent].get_elements()),
     }
+
+
+def _create_agent_action_space_for_rllib(
+    wrapped_action_space: dict[str, GymSpace[D.T_event]],
+    agent: str,
+    autoregressive_action: bool,
+    action_components_node_flag_indices: list[int | None] | None = None,
+    nb_graph_independent_components: int | None = None,
+) -> gym.spaces.Space:
+    if autoregressive_action:
+        return create_agent_autoregressive_action_space(
+            agent_action_space=wrapped_action_space[agent],
+            action_components_node_flag_indices=action_components_node_flag_indices,
+            nb_graph_independent_components=nb_graph_independent_components,
+        )
+    else:
+        return wrapped_action_space[agent].unwrapped()
 
 
 def _wrap_action(
