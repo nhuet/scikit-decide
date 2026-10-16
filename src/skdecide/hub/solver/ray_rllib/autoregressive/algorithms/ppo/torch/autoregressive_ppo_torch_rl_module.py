@@ -164,7 +164,9 @@ class AutoregressivePPOTorchRLModule(
                 logits_component = pi(features)
             else:
                 # graph node component
-                logits_component = pi({Columns.OBS: enriched_obs})[NODES]
+                logits_component = pi(
+                    {Columns.OBS: enriched_obs}, i_component=i_action_component
+                )[NODES]
 
             logits_component = mask_categorical_logits(
                 logits=logits_component, mask=action_component_mask
@@ -225,9 +227,22 @@ class AutoregressivePPOTorchRLModule(
                 # add position among graph node components
                 # i.e. a 1 for corresponding node (row) at corresponding position (column)
                 position = i_action_component - self._n_graphindependent_components
+                # heterogeneous?
+                if self.catalog.action_components_node_flag_indices is None:
+                    # no => action component corresponds to the actual node index
+                    node_id = action_component
+                else:
+                    # yes => action component is the index *among filtered nodes*
+                    node_flag_index = self.catalog.action_components_node_flag_indices[
+                        i_action_component
+                    ]
+                    nodes_to_keep = batch[Columns.OBS][:, :, node_flag_index].nonzero()[
+                        :, -1
+                    ]
+                    node_id = nodes_to_keep[action_component]
                 enriched_obs[NODES][
                     :,
-                    action_component,
+                    node_id,
                     n_node_features_before_position_feature + position,
                 ] = 1
 
@@ -299,14 +314,16 @@ class AutoregressivePPOTorchRLModule(
         assert len(applicable_actions == batch_dim)
 
         # full features: extracted features + encoded action components (all at once for efficiency)
+        encoded_graph_independent_action_components = tuple(
+            action_encoder_component({Columns.OBS: actions[:, i_action_component]})[
+                ENCODER_OUT
+            ]
+            for i_action_component, action_encoder_component in enumerate(
+                self.action_encoder_per_component
+            )
+        )
         full_features = th.cat(
-            (features,)
-            + tuple(
-                self.action_encoder_per_component[i_action_component](
-                    {Columns.OBS: actions[:, i_action_component]}
-                )[ENCODER_OUT]
-                for i_action_component in range(actions.shape[1])
-            ),
+            (features,) + encoded_graph_independent_action_components,
             dim=-1,
         )
         n_features_by_component = features.shape[-1] + np.cumsum(
@@ -316,7 +333,31 @@ class AutoregressivePPOTorchRLModule(
                 for config in self.catalog.action_encoder_per_component_configs
             )
         )
-
+        # node features (original graph obs features + graph node components)
+        if self.catalog.nb_graph2node_components > 0:
+            enriched_obs = copy.copy(batch[Columns.OBS])
+            # + onehot encoded (graph independent) action components (concatenate once for efficiency)
+            enriched_obs[NODES] = th.cat(
+                (enriched_obs[NODES],)
+                + tuple(
+                    encoded_component[
+                        :, None
+                    ].expand(  # add a dimension corresponding to node id as we add features to all nodes
+                        # expand to have same shape as node features:
+                        # new features will be added to each node
+                        enriched_obs[NODES].shape[:-1] + (-1,)
+                    )
+                    for encoded_component in encoded_graph_independent_action_components
+                )
+            )
+            # + onehot encoded position of graph nodes in graph node action components (only zeros for now)
+            (
+                n_node_features_before_position_feature,
+                enriched_obs[NODES],
+            ) = add_position_feature_to_node_features(
+                node_features=enriched_obs[NODES],
+                n_graph2node_components=self.catalog.nb_graph2node_components,
+            )
         action_dist_inputs_per_component = []
         action_component_masks = []
         for i_action_component, pi in enumerate(self.pi_per_component):
@@ -352,17 +393,38 @@ class AutoregressivePPOTorchRLModule(
             # compute logits only for relevant samples
             if compute_all_samples:
                 # all samples are relevant
-                action_component_full_logits = pi(
-                    full_features[:, : n_features_by_component[i_action_component]]
-                )
+                if i_action_component < self.catalog.nb_graph_independent_components:
+                    # regular (graph independent) component
+                    action_component_full_logits = pi(
+                        full_features[:, : n_features_by_component[i_action_component]]
+                    )
+                else:
+                    # graph node component
+                    action_component_full_logits = pi(
+                        {Columns.OBS: enriched_obs}, i_component=i_action_component
+                    )[NODES]
             else:
                 # only some samples are relevant
-                action_component_logits = pi(
-                    full_features[
-                        indices_samples_with_component,
-                        : n_features_by_component[i_action_component],
-                    ]
-                )
+                if i_action_component < self.catalog.nb_graph_independent_components:
+                    # regular (graph independent) component
+                    action_component_logits = pi(
+                        full_features[
+                            indices_samples_with_component,
+                            : n_features_by_component[i_action_component],
+                        ]
+                    )
+                else:
+                    # graph node component
+                    action_component_logits = pi(
+                        {
+                            Columns.OBS: {
+                                # extract subgraph dict corresponding to relevant samples
+                                k: v[indices_samples_with_component]
+                                for k, v in enriched_obs.items()
+                            }
+                        },
+                        i_component=i_action_component,
+                    )[NODES]
                 # fill logits with 0 for irrelevant samples  (will be masked afterwards)
                 action_component_full_logits = th.zeros_like(
                     action_component_mask, dtype=action_component_logits.dtype

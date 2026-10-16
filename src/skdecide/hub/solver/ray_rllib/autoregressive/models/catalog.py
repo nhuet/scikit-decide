@@ -90,7 +90,7 @@ class AutoregressiveCatalog(Catalog):
             )
             for action_component_space in self.get_action_component_spaces()[
                 :nb_components_to_encode
-            ]  # skip last component
+            ]
         ]
         return [
             config.build(framework=framework)

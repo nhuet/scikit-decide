@@ -37,7 +37,9 @@ class TorchGraph2Node(TorchModel):
         )
         self.node_flag_index = self.config.node_flag_index
 
-    def _forward(self, input_dict: dict, **kwargs) -> dict:
+    def _forward(
+        self, input_dict: dict, i_component: int | None = None, **kwargs
+    ) -> dict:
         observations = input_dict[Columns.OBS]
         # convert to thg.data.Batch
         graph_observations = batched_torch_graph_dict_to_thg_data(observations)
@@ -52,7 +54,15 @@ class TorchGraph2Node(TorchModel):
             nodes_to_keep = None
         # pad node logits to match previously computed logits if any (e.g. in rl_module.forward_train)
         if Columns.ACTION_DIST_INPUTS in input_dict:
-            max_n_nodes = input_dict[Columns.ACTION_DIST_INPUTS].shape[-1]
+            if isinstance(i_component, int):
+                # autoregressive setup, graph node component
+                action_dist_inputs_per_component, action_component_masks = input_dict[
+                    Columns.ACTION_DIST_INPUTS
+                ]
+                max_n_nodes = action_dist_inputs_per_component.shape[-1]
+            else:
+                # graph observation with graph node action
+                max_n_nodes = input_dict[Columns.ACTION_DIST_INPUTS].shape[-1]
         else:
             max_n_nodes = None
         node_logits = unbatch_node_logits(
