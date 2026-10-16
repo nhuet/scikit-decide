@@ -688,8 +688,16 @@ class AutoregressiveActorCriticPolicy(MaskableActorCriticPolicy):
                     # add position among graph node components:
                     # ie a 1 for corresponding node (row) at corresponding position (column)
                     position = i_action_component - self._n_graphindependent_components
+                    # heterogeneous?
+                    if nodes_to_keep is None:
+                        # no => action_component is directly the node index
+                        node_id = action_component
+                    else:
+                        # yes => the action_component is the node index *among filtered nodes*
+                        node_id = nodes_to_keep[0][action_component]
+
                     enriched_obs.x[
-                        action_component,
+                        node_id,
                         n_node_features_before_position_feature + position,
                     ] = 1
 
