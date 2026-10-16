@@ -78,6 +78,10 @@ class Graph2NodeConfig(ModelConfig):
         default_factory=dict,
     )
     """Kwargs for `skdecide.hub.solver.utils.gnn.torch_layers.Graph2NodeLayer`."""
+    node_flag_index: int | None = None
+    """Index of node feature to consider to preselect possible nodes, in case of heterogeneous graph."""
+    keep_graph_embedding: bool = False
+    """Whether to keep graph embeddings in output."""
 
     def build(self, framework: str) -> TorchGraph2Node:
         return TorchGraph2Node(self)

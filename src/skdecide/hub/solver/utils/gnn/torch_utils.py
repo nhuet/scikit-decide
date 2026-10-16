@@ -66,7 +66,7 @@ def thg_data_to_graph_instance(
 
 def unbatch_node_logits(
     data: thg.data.Data,
-    nodes_to_keep: Optional[th.Tensor] = None,
+    nodes_to_keep: Optional[tuple[th.Tensor, ...]] = None,
     max_n_nodes: int | None = None,
 ) -> th.Tensor:
     x, batch = data.x, data.batch
@@ -86,8 +86,11 @@ def unbatch_node_logits(
             )
     else:
         x_split = thg.utils.unbatch(x.flatten(), batch)
+        max_n_nodes_x = max(len(xx) for xx in x_split)
         if max_n_nodes is None:
-            max_n_nodes = max(len(xx) for xx in x_split)
+            max_n_nodes = max_n_nodes_x
+        else:
+            max_n_nodes = max(max_n_nodes_x, max_n_nodes)
         # we pad with -inf the logits (to avoid sampling node index higher than actual node number)
         # for stability issues (in particular in backprop), we approximate -inf with min float
         minus_infty_approx = th.finfo(x.dtype).min

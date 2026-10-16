@@ -13,12 +13,10 @@ from ray.rllib.utils.typing import TensorType
 from skdecide.hub.solver.ray_rllib.gnn.algorithms.ppo.ppo_catalog import (
     Graph2NodePPOCatalog,
 )
-from skdecide.hub.solver.ray_rllib.gnn.models.torch.graph2node import GRAPH_EMBEDDINGS
 from skdecide.hub.solver.ray_rllib.gnn.rl_module.torch.graph2node_torch_rl_module import (
     Graph2NodeTorchRLModule,
 )
 from skdecide.hub.solver.ray_rllib.gnn.utils.spaces.space_utils import NODES
-from skdecide.hub.solver.utils.gnn.torch_utils import unbatch_node_logits
 
 
 class Graph2NodePPOTorchRLModule(DefaultPPOTorchRLModule, Graph2NodeTorchRLModule):
@@ -62,10 +60,5 @@ def _forward_graph2node_ppo(
 ) -> dict[str, TensorType]:
     output = {}
     action_net_outs = self.action_net(batch)
-    # pad action logits to match nodes number in observation graph (potentially itself padded)
-    max_n_nodes = batch[Columns.OBS][NODES].shape[1]
-    output[Columns.ACTION_DIST_INPUTS] = unbatch_node_logits(
-        action_net_outs[GRAPH_EMBEDDINGS],
-        max_n_nodes=max_n_nodes,
-    )
+    output[Columns.ACTION_DIST_INPUTS] = action_net_outs[NODES]
     return output
