@@ -20,6 +20,7 @@ from skdecide.hub.solver.ray_rllib.autoregressive.models.configs import (
 )
 from skdecide.hub.solver.ray_rllib.autoregressive.utils.spaces.space_utils import (
     GraphNodeMultiDiscrete,
+    HeteroGraphNodeMultiDiscrete,
 )
 from skdecide.hub.solver.ray_rllib.common.constants import TORCH_FRAMEWORK
 from skdecide.hub.solver.ray_rllib.gnn.models.configs import Graph2NodeConfig
@@ -179,29 +180,40 @@ class AutoregressiveCatalog(Catalog):
                         "encoded action components are supposed to be flattened"
                     )
                     input_dims = (input_dims[0] + encoded_component_dims[0],)
-                    # for graph node actions, will be added to node features
-                    enriched_observation_space[NODES] = (
-                        add_onehot_encoded_discrete_feature_to_box_space(
-                            enriched_observation_space[NODES],
-                            new_dim=encoded_component_dims[0],
-                        )
-                    )
-
-                    # if last independent component before graph node components, add position of node in action components
-                    if i_component == self.nb_graph_independent_components:
+                    if self.nb_graph2node_components > 0:
+                        # for graph node actions, will be added to node features
                         enriched_observation_space[NODES] = (
                             add_onehot_encoded_discrete_feature_to_box_space(
                                 enriched_observation_space[NODES],
-                                new_dim=self.nb_graph2node_components,
+                                new_dim=encoded_component_dims[0],
                             )
                         )
             else:
                 # graph node component
+                # first graph node component?
+                if i_component == self.nb_graph_independent_components:
+                    # add position of each component among graph node components to node features
+                    enriched_observation_space[NODES] = (
+                        add_onehot_encoded_discrete_feature_to_box_space(
+                            enriched_observation_space[NODES],
+                            new_dim=self.nb_graph2node_components,
+                        )
+                    )
+                # heteregeneous graph?
+                if self.action_components_node_flag_indices is not None:
+                    # index of binary node feature used to filter nodes
+                    node_flag_index = self.action_components_node_flag_indices[
+                        i_component
+                    ]
+                else:
+                    node_flag_index = None
+
                 pi_head_config = Graph2NodeConfig(
                     observation_space=enriched_observation_space,
                     graph2node_kwargs=self._model_config_dict.get(
                         "graph2node_action_net_kwargs", {}
                     ),
+                    node_flag_index=node_flag_index,
                 )
                 pi_heads.append(pi_head_config.build(framework=framework))
                 self.pi_head_configs.append(pi_head_config)
@@ -226,7 +238,16 @@ class AutoregressiveCatalog(Catalog):
 
     @property
     def nb_action_components(self) -> int:
+        """Number of action components."""
         return len(self.action_space.nvec)
+
+    @property
+    def action_components_node_flag_indices(self) -> None | list[int | None]:
+        """Indices of binary node features to filter potential nodes for each component."""
+        if isinstance(self.action_space, HeteroGraphNodeMultiDiscrete):
+            return self.action_space.action_components_node_flag_indices
+        else:
+            return None
 
 
 def get_action_dist_cls(framework: str, action_space: gym.Space) -> type[Distribution]:

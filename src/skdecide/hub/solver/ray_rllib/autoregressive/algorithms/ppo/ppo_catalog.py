@@ -7,7 +7,6 @@ from skdecide.hub.solver.ray_rllib.autoregressive.models.catalog import (
     AutoregressiveCatalog,
 )
 from skdecide.hub.solver.ray_rllib.gnn.algorithms.ppo.ppo_catalog import (
-    Graph2NodePPOCatalog,
     GraphPPOCatalog,
 )
 
@@ -16,8 +15,3 @@ class AutoregressivePPOCatalog(AutoregressiveCatalog, PPOCatalog): ...
 
 
 class AutoregressiveGraphPPOCatalog(AutoregressivePPOCatalog, GraphPPOCatalog): ...
-
-
-class AutoregressiveGraph2NodePPOCatalog(
-    AutoregressivePPOCatalog, Graph2NodePPOCatalog
-): ...

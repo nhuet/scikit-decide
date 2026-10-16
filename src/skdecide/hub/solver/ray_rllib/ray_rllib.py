@@ -61,7 +61,6 @@ from skdecide.hub.solver.ray_rllib.action_masking.utils.spaces.space_utils impor
     create_agent_action_mask_space,
 )
 from skdecide.hub.solver.ray_rllib.autoregressive.algorithms.ppo.ppo_catalog import (
-    AutoregressiveGraph2NodePPOCatalog,
     AutoregressiveGraphPPOCatalog,
     AutoregressivePPOCatalog,
 )
@@ -359,6 +358,8 @@ class RayRLlib(Solver, Policies, Restorable):
 
         # autoregressive action
         self._autoregressive_action = autoregressive_action
+        self._autoregressive_action_nb_graph_independent_components = None
+        self._autoregressive_action_components_node_flag_indices = None
 
         if self._autoregressive_action:
             assert all(
@@ -402,6 +403,7 @@ class RayRLlib(Solver, Policies, Restorable):
                     len(agent_action_space.nvec)
                     for agent_action_space in self._wrapped_action_space.values()
                 ):
+                    # at least one graph node component
                     self._autoregressive_action_nb_graph_independent_components = (
                         autoregressive_action_nb_graph_independent_components
                     )
@@ -412,9 +414,6 @@ class RayRLlib(Solver, Policies, Restorable):
                     # only independent components
                     self._autoregressive_action_nb_graph_independent_components = None
                     self._autoregressive_action_components_node_flag_indices = None
-            else:
-                self._autoregressive_action_nb_graph_independent_components = None
-                self._autoregressive_action_components_node_flag_indices = None
 
         # graph -> node (ie an action is a node of observation graph, or some components are nodes for autoregressive action)
         self._graph2node = (self._is_graph_obs and graph_node_action) or (
@@ -632,10 +631,7 @@ class RayRLlib(Solver, Policies, Restorable):
                 if self._algo_class is PPO:
                     if self._is_graph_obs or self._is_graph_multiinput_obs:
                         # needs also graph /multiinput obs encoder
-                        if self._graph2node:
-                            catalog_class = AutoregressiveGraph2NodePPOCatalog
-                        else:
-                            catalog_class = AutoregressiveGraphPPOCatalog
+                        catalog_class = AutoregressiveGraphPPOCatalog
                         # Customize encoder
                         default_model_config["graph_features_extractor_kwargs"] = (
                             self._graph_feature_extractors_kwargs

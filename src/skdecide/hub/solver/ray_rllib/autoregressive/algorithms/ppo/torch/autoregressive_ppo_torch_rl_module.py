@@ -1,6 +1,7 @@
 #  Copyright (c) AIRBUS and its affiliates.
 #  This source code is licensed under the MIT license found in the
 #  LICENSE file in the root directory of this source tree.
+import copy
 from typing import Any, Dict, Optional
 
 import gymnasium as gym
@@ -32,7 +33,9 @@ from skdecide.hub.solver.ray_rllib.autoregressive.utils.spaces.space_utils impor
     APPLICABLE_ACTIONS,
 )
 from skdecide.hub.solver.ray_rllib.common.constants import ForwardPhase
+from skdecide.hub.solver.ray_rllib.gnn.utils.spaces.space_utils import NODES
 from skdecide.hub.solver.utils.autoregressive.torch_utils import (
+    add_position_feature_to_node_features,
     batched_extract_action_component_mask,
     extract_action_component_mask,
 )
@@ -116,15 +119,23 @@ class AutoregressivePPOTorchRLModule(
             (-1, len(self.action_space.nvec))
         )  # remove batch dimension
 
-        # Encode observations into features
-        encoder_outs = self.encoder(batch)
-        features = encoder_outs[ENCODER_OUT][ACTOR]
-        # Stateful encoder?
-        if Columns.STATE_OUT in encoder_outs:
-            output[Columns.STATE_OUT] = encoder_outs[Columns.STATE_OUT]
+        if self.catalog.nb_graph_independent_components > 0:
+            # Encode observations into features if any "regular" action component
+            encoder_outs = self.encoder(batch)
+            features = encoder_outs[ENCODER_OUT][ACTOR]
+            # Stateful encoder?
+            if Columns.STATE_OUT in encoder_outs:
+                output[Columns.STATE_OUT] = encoder_outs[Columns.STATE_OUT]
+
+        if self.catalog.nb_graph2node_components > 0:
+            # Prepare enriched graph if graph observation + any graph node action components
+            enriched_obs = copy.copy(batch[Columns.OBS])
+
         # pi heads for each component
         action_dist_inputs_per_component = []
-        action_components = th.as_tensor([], device=features.device, dtype=int)
+        action_components = th.as_tensor(
+            [], device=batch[Columns.OBS].device, dtype=int
+        )
         action_component_masks = []
         action_dist_cls_per_component = self.get_action_dist_cls_per_component(
             phase=phase
@@ -148,7 +159,13 @@ class AutoregressivePPOTorchRLModule(
             action_component_masks.append(action_component_mask)
 
             # compute component logits
-            logits_component = pi(features)
+            if i_action_component < self.catalog.nb_graph_independent_components:
+                # regular (graph independent) component
+                logits_component = pi(features)
+            else:
+                # graph node component
+                logits_component = pi({Columns.OBS: enriched_obs})[NODES]
+
             logits_component = mask_categorical_logits(
                 logits=logits_component, mask=action_component_mask
             )
@@ -166,10 +183,53 @@ class AutoregressivePPOTorchRLModule(
             action_components = th.cat((action_components, action_component), -1)
 
             # add encoded action component to features for next component logits
-            encoded_action_component = self.action_encoder_per_component[
-                i_action_component
-            ]({Columns.OBS: action_component})[ENCODER_OUT]
-            features = th.cat((features, encoded_action_component), dim=-1)
+            if i_action_component < self.nb_action_components - 1:
+                if i_action_component < self.catalog.nb_graph_independent_components:
+                    # "regular" (graph independent) component => one-hot encode it
+                    encoded_action_component = self.action_encoder_per_component[
+                        i_action_component
+                    ]({Columns.OBS: action_component})[ENCODER_OUT]
+
+                    if (
+                        i_action_component
+                        < self.catalog.nb_graph_independent_components - 1
+                    ):
+                        # add to features for next "regular" (graph independent) components
+                        features = th.cat((features, encoded_action_component), dim=-1)
+
+                    if self.catalog.nb_graph2node_components > 0:
+                        # add to node features to be used for graph node components
+                        enriched_obs[NODES] = th.cat(
+                            (
+                                enriched_obs[NODES],
+                                encoded_action_component.expand(
+                                    # expand to have same shape as node features:
+                                    # new features will be added to each node
+                                    enriched_obs[NODES].shape[:-1] + (-1,)
+                                ),
+                            ),
+                            -1,
+                        )
+
+            else:
+                if i_action_component == self.catalog.nb_graph_independent_components:
+                    # first graph node component: init node features encoding position of each node among graph node components
+                    (
+                        n_node_features_before_position_feature,
+                        enriched_obs[NODES],
+                    ) = add_position_feature_to_node_features(
+                        node_features=enriched_obs[NODES],
+                        n_graph2node_components=self.catalog.nb_graph2node_components,
+                    )
+
+                # add position among graph node components
+                # i.e. a 1 for corresponding node (row) at corresponding position (column)
+                position = i_action_component - self._n_graphindependent_components
+                enriched_obs[NODES][
+                    :,
+                    action_component,
+                    n_node_features_before_position_feature + position,
+                ] = 1
 
         actions = action_components[None]  # add batch dimension
         action_dist_cls: AutoregressiveDistribution = self.get_action_dist_cls(
