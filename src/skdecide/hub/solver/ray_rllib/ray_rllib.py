@@ -787,16 +787,22 @@ class RayRLlib(Solver, Policies, Restorable):
                 env_to_module_connector = (
                     lambda env,
                     spaces,
-                    device: FlattenMultiagentAutoregressiveActionObservations(
-                        is_multiinput=self._is_graph_multiinput_obs,
-                        is_graph_dict=self._is_graph_obs,
+                    device,
+                    is_multiinput=self._is_graph_multiinput_obs,
+                    is_graph_dict=self._is_graph_obs,: FlattenMultiagentAutoregressiveActionObservations(
+                        is_multiinput=is_multiinput,
+                        is_graph_dict=is_graph_dict,
                     )
                 )
             elif self._action_masking:
                 env_to_module_connector = (
-                    lambda env, spaces, device: FlattenMultiagentMaskedObservations(
-                        is_multiinput=self._is_graph_multiinput_obs,
-                        is_graph_dict=self._is_graph_obs,
+                    lambda env,
+                    spaces,
+                    device,
+                    is_multiinput=self._is_graph_multiinput_obs,
+                    is_graph_dict=self._is_graph_obs,: FlattenMultiagentMaskedObservations(
+                        is_multiinput=is_multiinput,
+                        is_graph_dict=is_graph_dict,
                     )
                 )
             elif self._is_graph_obs:

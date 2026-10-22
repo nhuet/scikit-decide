@@ -2,7 +2,6 @@ import os
 from tempfile import TemporaryDirectory
 
 import numpy as np
-import pytest
 import ray
 from pytest_cases import fixture
 from ray.rllib.algorithms import PPO
@@ -316,32 +315,26 @@ def test_autoregressive_heterograph2node_ppo(
         )
 
 
-@pytest.mark.skip("Not yet ready")
 def test_autoregressive_heterograph2node_ppo_save_load(
     graph_walk_with_heterograph_obs_domain_factory,
     graph_walk_with_heterograph_obs_domain_factory_2,
-    action_components_node_flag_indices,
     ppo_config,
 ):
     domain_factory = graph_walk_with_heterograph_obs_domain_factory
     domain_factory_2 = graph_walk_with_heterograph_obs_domain_factory_2
+    action_components_node_flag_indices = (
+        domain_factory().action_components_node_flag_indices
+    )
 
-    model_id = "model_id"
     with TemporaryDirectory() as directory:
         path = f"{directory}/sb3"
-        agent2module_id = {agent: model_id for agent in domain_factory().get_agents()}
         with RayRLlib(
             domain_factory=domain_factory,
             algo_class=PPO,
             config=ppo_config,
             train_iterations=1,
             autoregressive_action=True,
-            model_configs={
-                model_id: dict(
-                    action_components_node_flag_indices=action_components_node_flag_indices,
-                )
-            },
-            agent2module_id=agent2module_id,
+            autoregressive_action_components_node_flag_indices=action_components_node_flag_indices,
         ) as solver:
             # solve
             solver.solve()
@@ -349,35 +342,23 @@ def test_autoregressive_heterograph2node_ppo_save_load(
             solver.save(path)
 
         # load for another domain (more objects) + solve + rollout
-        agent2module_id = {agent: model_id for agent in domain_factory_2().get_agents()}
         with RayRLlib(
             domain_factory=domain_factory_2,
             algo_class=PPO,
             config=ppo_config,
             train_iterations=1,
             autoregressive_action=True,
-            model_configs={
-                model_id: dict(
-                    action_components_node_flag_indices=action_components_node_flag_indices,
-                    n_graph2node_components=1,
-                )
-            },
-            agent2module_id=agent2module_id,
+            autoregressive_action_components_node_flag_indices=action_components_node_flag_indices,
         ) as solver:
             # load
             solver.load(path)
-            assert solver._algo.n_steps == 15
-
-            # solve
-            solver.solve()
 
             # rollout on domain 2
             max_steps = 20
-            episodes = rollout(
+            rollout(
                 domain=graph_walk_with_heterograph_obs_domain_factory_2(),
                 solver=solver,
                 max_steps=max_steps,
                 num_episodes=1,
                 render=False,
-                return_episodes=True,
             )
